@@ -2,6 +2,9 @@ const output = document.getElementById("output");
 const refreshButton = document.getElementById("refreshButton");
 const timeslotSelect = document.getElementById("timeslot");
 const tableWrap = document.getElementById("tableWrap");
+const venueFilterInput = document.getElementById("venueFilter");
+
+let latestMatrix = null;
 
 function statusBadgeClass(status) {
   if (status === "green") return "text-bg-success";
@@ -9,28 +12,32 @@ function statusBadgeClass(status) {
   return "text-bg-secondary";
 }
 
-function buildTable(matrix) {
+function renderStatusCell(cell) {
+  const status = cell.status || "unavail";
+  const slotLinks = (cell.slots || [])
+    .map(
+      (slot) =>
+        `<a class="slot-link badge text-bg-light border" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
+    )
+    .join("");
+
+  return `
+    <td class="cell">
+      <div><span class="badge ${statusBadgeClass(status)} status-label">${status}</span></div>
+      <div class="slot-links">${slotLinks || ""}</div>
+    </td>
+  `;
+}
+
+function buildMatrixTable(matrix, tents) {
   const headerCells = matrix.dates.map((date) => `<th>${date}</th>`).join("");
 
-  const rows = matrix.tents
+  const rows = tents
     .map((tent) => {
       const statusCells = matrix.dates
         .map((date) => {
           const cell = tent.matrix[date] || { status: "unavail", slots: [] };
-          const status = cell.status || "unavail";
-          const slotLinks = (cell.slots || [])
-            .map(
-              (slot) =>
-                `<a class="slot-link badge text-bg-light border" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
-            )
-            .join("");
-
-          return `
-            <td class="cell">
-              <div><span class="badge ${statusBadgeClass(status)} status-label">${status}</span></div>
-              <div class="slot-links">${slotLinks || ""}</div>
-            </td>
-          `;
+          return renderStatusCell(cell);
         })
         .join("");
 
@@ -56,8 +63,52 @@ function buildTable(matrix) {
   `;
 }
 
-function buildVenueSummary(matrix) {
-  const rows = matrix.tents
+function buildCardView(matrix, tents) {
+  const cards = tents
+    .map((tent) => {
+      const rows = matrix.dates
+        .map((date) => {
+          const cell = tent.matrix[date] || { status: "unavail", slots: [] };
+          const slots = (cell.slots || [])
+            .map(
+              (slot) =>
+                `<a class="slot-link badge text-bg-light border" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
+            )
+            .join(" ");
+
+          return `
+            <div class="d-flex justify-content-between align-items-start gap-2 py-2 border-bottom">
+              <div class="small fw-semibold">${date}</div>
+              <div class="text-end">
+                <span class="badge ${statusBadgeClass(cell.status || "unavail")}">${cell.status || "unavail"}</span>
+                <div class="mt-1">${slots}</div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      return `
+        <div class="col-12 col-lg-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <h3 class="h6 mb-3"><a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a></h3>
+              ${rows}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <h2 class="h4 mt-2 mb-3">Reservation Cards</h2>
+    <div class="row g-3 mb-4">${cards}</div>
+  `;
+}
+
+function buildVenueSummary(tents) {
+  const rows = tents
     .map((tent) => {
       const guestGroups = (tent.ticketTypes?.guestGroups || []).join(", ");
       const tableSizes = (tent.ticketTypes?.tableSizes || []).join(", ");
@@ -100,6 +151,29 @@ function buildVenueSummary(matrix) {
   `;
 }
 
+function currentViewMode() {
+  return document.querySelector('input[name="viewMode"]:checked')?.value || "matrix";
+}
+
+function filteredTents(matrix) {
+  const filter = (venueFilterInput.value || "").trim().toLowerCase();
+  if (!filter) return matrix.tents;
+  return matrix.tents.filter((tent) => tent.name.toLowerCase().includes(filter));
+}
+
+function renderMatrix() {
+  if (!latestMatrix) return;
+
+  const tents = filteredTents(latestMatrix);
+  const mainView =
+    currentViewMode() === "cards"
+      ? buildCardView(latestMatrix, tents)
+      : buildMatrixTable(latestMatrix, tents);
+
+  tableWrap.innerHTML = `${mainView}${buildVenueSummary(tents)}`;
+  output.textContent = `Loaded: ${tents.length}/${latestMatrix.tents.length} tents, timeslot=${latestMatrix.timeslot}`;
+}
+
 async function loadMatrix() {
   const timeslot = timeslotSelect.value;
   output.textContent = "Loading matrix...";
@@ -111,9 +185,8 @@ async function loadMatrix() {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
-    tableWrap.innerHTML = `${buildTable(data)}${buildVenueSummary(data)}`;
-    output.textContent = `Loaded: ${data.tents.length} tents, timeslot=${data.timeslot}`;
+    latestMatrix = await response.json();
+    renderMatrix();
   } catch (error) {
     output.textContent = `Request failed: ${error.message}`;
     tableWrap.textContent = "Could not load matrix.";
@@ -122,5 +195,9 @@ async function loadMatrix() {
 
 refreshButton.addEventListener("click", loadMatrix);
 timeslotSelect.addEventListener("change", loadMatrix);
+venueFilterInput.addEventListener("input", renderMatrix);
+document.querySelectorAll('input[name="viewMode"]').forEach((el) => {
+  el.addEventListener("change", renderMatrix);
+});
 
 loadMatrix();

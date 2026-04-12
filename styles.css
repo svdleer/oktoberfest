@@ -13,6 +13,11 @@ body {
   letter-spacing: 0.01em;
 }
 
+#timeslot,
+#venueFilter {
+  min-width: 160px;
+}
+
 .small-status {
   border: 1px solid var(--bs-border-color);
   border-radius: 0.5rem;
@@ -35,6 +40,24 @@ body {
   vertical-align: top;
 }
 
+.matrix-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.matrix-table th:first-child,
+.matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bs-body-bg);
+}
+
+.matrix-table thead th:first-child {
+  z-index: 4;
+}
+
 .status-label {
   text-transform: capitalize;
   font-size: 0.78rem;
@@ -49,4 +72,11 @@ body {
 
 .slot-link {
   font-size: 0.72rem;
+}
+
+@media (max-width: 991px) {
+  .matrix-table th,
+  .matrix-table td {
+    min-width: 130px;
+  }
 }
