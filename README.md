@@ -64,6 +64,10 @@ php scripts/fischer_vroni_telegram_monitor.php --force
 
 If this succeeds, the script prints the exact target it sent to.
 
+Common error:
+
+- `Forbidden: bot is not a member of the channel` -> add the bot to the channel and allow posting.
+
 ### 3. Run every 10 minutes via cron
 
 ```bash

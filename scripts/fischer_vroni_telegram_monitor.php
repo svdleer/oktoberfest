@@ -73,9 +73,10 @@ if ($force || $changed) {
         'URL: ' . $checkUrl,
     ]);
 
-    $sent = sendTelegramMessage($botToken, $target, $message, $threadId);
-    if (!$sent) {
-        fwrite(STDERR, "Telegram message failed to send.\n");
+    $sendResult = sendTelegramMessage($botToken, $target, $message, $threadId);
+    if (!($sendResult['ok'] ?? false)) {
+        $errorMessage = $sendResult['error'] ?? 'Unknown Telegram API error';
+        fwrite(STDERR, "Telegram message failed to send: {$errorMessage}\n");
         exit(3);
     }
 
@@ -173,7 +174,7 @@ function saveState(string $path, array $state): void
     file_put_contents($path, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 }
 
-function sendTelegramMessage(string $botToken, string $target, string $message, ?int $threadId): bool
+function sendTelegramMessage(string $botToken, string $target, string $message, ?int $threadId): array
 {
     $url = sprintf('https://api.telegram.org/bot%s/sendMessage', rawurlencode($botToken));
     $payloadData = [
@@ -187,17 +188,68 @@ function sendTelegramMessage(string $botToken, string $target, string $message, 
 
     $payload = http_build_query($payloadData);
 
-    $opts = [
-        'http' => [
-            'method' => 'POST',
-            'timeout' => 20,
-            'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-            'content' => $payload,
-        ],
-    ];
+    $response = null;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        if ($ch !== false) {
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            ]);
 
-    $context = stream_context_create($opts);
-    $response = @file_get_contents($url, false, $context);
+            $curlResponse = curl_exec($ch);
+            $curlError = curl_error($ch);
 
-    return $response !== false;
+            if ($curlResponse !== false) {
+                $response = $curlResponse;
+            } elseif ($curlError !== '') {
+                return [
+                    'ok' => false,
+                    'error' => 'cURL error: ' . $curlError,
+                ];
+            }
+        }
+    }
+
+    if ($response === null) {
+        $opts = [
+            'http' => [
+                'method' => 'POST',
+                'timeout' => 20,
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => $payload,
+            ],
+        ];
+
+        $context = stream_context_create($opts);
+        $response = @file_get_contents($url, false, $context);
+    }
+
+    if ($response === false) {
+        return [
+            'ok' => false,
+            'error' => 'HTTP request failed',
+        ];
+    }
+
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        return [
+            'ok' => false,
+            'error' => 'Invalid Telegram API response',
+        ];
+    }
+
+    if (($decoded['ok'] ?? false) !== true) {
+        return [
+            'ok' => false,
+            'error' => (string) ($decoded['description'] ?? 'Telegram API returned error'),
+        ];
+    }
+
+    return ['ok' => true];
 }
