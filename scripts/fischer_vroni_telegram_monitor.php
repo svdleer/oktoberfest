@@ -25,12 +25,17 @@ if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageD
 
 $env = loadEnvFile($envFile);
 $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
-$chatId = getenv('TELEGRAM_CHAT_ID') ?: ($env['TELEGRAM_CHAT_ID'] ?? '');
+$target = getenv('TELEGRAM_TARGET') ?: ($env['TELEGRAM_TARGET'] ?? '');
+if ($target === '') {
+    $target = getenv('TELEGRAM_CHAT_ID') ?: ($env['TELEGRAM_CHAT_ID'] ?? '');
+}
+$threadIdRaw = getenv('TELEGRAM_MESSAGE_THREAD_ID') ?: ($env['TELEGRAM_MESSAGE_THREAD_ID'] ?? '');
+$threadId = ctype_digit((string) $threadIdRaw) ? (int) $threadIdRaw : null;
 $checkUrl = getenv('CHECK_URL') ?: ($env['CHECK_URL'] ?? DEFAULT_CHECK_URL);
 $force = in_array('--force', $argv, true);
 
-if ($botToken === '' || $chatId === '') {
-    fwrite(STDERR, "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID. Configure .env.telegram or environment variables.\n");
+if ($botToken === '' || $target === '') {
+    fwrite(STDERR, "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_TARGET (or TELEGRAM_CHAT_ID fallback). Configure .env.telegram or environment variables.\n");
     exit(1);
 }
 
@@ -68,13 +73,13 @@ if ($force || $changed) {
         'URL: ' . $checkUrl,
     ]);
 
-    $sent = sendTelegramMessage($botToken, $chatId, $message);
+    $sent = sendTelegramMessage($botToken, $target, $message, $threadId);
     if (!$sent) {
         fwrite(STDERR, "Telegram message failed to send.\n");
         exit(3);
     }
 
-    echo "Telegram notification sent.\n";
+    echo sprintf("Telegram notification sent to %s.\n", $target);
 } else {
     echo "No status change, no Telegram message sent.\n";
 }
@@ -168,14 +173,19 @@ function saveState(string $path, array $state): void
     file_put_contents($path, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 }
 
-function sendTelegramMessage(string $botToken, string $chatId, string $message): bool
+function sendTelegramMessage(string $botToken, string $target, string $message, ?int $threadId): bool
 {
     $url = sprintf('https://api.telegram.org/bot%s/sendMessage', rawurlencode($botToken));
-    $payload = http_build_query([
-        'chat_id' => $chatId,
+    $payloadData = [
+        'chat_id' => $target,
         'text' => $message,
         'disable_web_page_preview' => 'true',
-    ]);
+    ];
+    if ($threadId !== null) {
+        $payloadData['message_thread_id'] = (string) $threadId;
+    }
+
+    $payload = http_build_query($payloadData);
 
     $opts = [
         'http' => [

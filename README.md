@@ -45,14 +45,24 @@ cp .env.telegram.example .env.telegram
 Edit `.env.telegram`:
 
 - `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_TARGET` (recommended): `@channel_username` or `-100...` channel/group id
+- Optional `TELEGRAM_CHAT_ID` (legacy fallback)
+- Optional `TELEGRAM_MESSAGE_THREAD_ID` (for forum topics)
 - Optional `CHECK_URL`
+
+Channel requirements:
+
+- Add your bot to the target channel/group
+- Grant the bot permission to post messages
+- For private channels, use numeric `-100...` id if `@username` does not deliver
 
 ### 2. Manual test
 
 ```bash
 php scripts/fischer_vroni_telegram_monitor.php --force
 ```
+
+If this succeeds, the script prints the exact target it sent to.
 
 ### 3. Run every 10 minutes via cron
 
