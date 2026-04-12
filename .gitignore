@@ -17,3 +17,7 @@ yarn-error.log*
 # PHP / Composer
 vendor/
 .phpunit.result.cache
+
+# Monitor config/state
+.env.telegram
+storage/*.json

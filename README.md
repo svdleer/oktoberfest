@@ -31,3 +31,36 @@ Timeslot values:
 - `all`
 - `mittag`
 - `abend`
+
+## Telegram Alert Bot (Fischer-Vroni)
+
+This project includes a monitor script that checks Fischer-Vroni availability and sends a Telegram message when status changes.
+
+### 1. Configure bot credentials
+
+```bash
+cp .env.telegram.example .env.telegram
+```
+
+Edit `.env.telegram`:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- Optional `CHECK_URL`
+
+### 2. Manual test
+
+```bash
+php scripts/fischer_vroni_telegram_monitor.php --force
+```
+
+### 3. Run every 10 minutes via cron
+
+```bash
+*/10 * * * * cd /Users/silvester/PythonDev/Git/oktoberfest && /usr/bin/php scripts/fischer_vroni_telegram_monitor.php >> storage/monitor.log 2>&1
+```
+
+Behavior:
+
+- Sends Telegram message when status changes (not available -> available, or available -> not available)
+- Stores last known status in `storage/fischer_vroni_monitor_state.json`
