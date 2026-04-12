@@ -4,7 +4,7 @@ JavaScript frontend + PHP backend starter project.
 
 ## Project Structure
 
-- `frontend/` - Static frontend (HTML/CSS/JS)
+- `index.html`, `styles.css`, `app.js` - Static frontend at web root
 - `backend/public/index.php` - PHP API entrypoint
 
 ## Run Locally
@@ -27,7 +27,6 @@ Health endpoint:
 In a second terminal from the repository root:
 
 ```bash
-cd frontend
 python3 -m http.server 5173
 ```
 
