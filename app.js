@@ -12,14 +12,28 @@ function statusBadgeClass(status) {
   return "text-bg-secondary";
 }
 
+function renderTimeslotBadges(cell) {
+  const slots = ["mittag", "abend"];
+
+  return slots
+    .map((slot) => {
+      const slotStatus = cell.slotStatus?.[slot] || "unavail";
+      const slotUrl = cell.slotLinks?.[slot] || "#";
+      const badge = `slot-link slot-badge badge ${statusBadgeClass(slotStatus)}`;
+      const label = `${slot}`;
+
+      if (slotStatus === "green") {
+        return `<a class="${badge}" href="${slotUrl}" target="_blank" rel="noreferrer">${label}</a>`;
+      }
+
+      return `<span class="${badge}">${label}</span>`;
+    })
+    .join("");
+}
+
 function renderStatusCell(cell) {
   const status = cell.status || "unavail";
-  const slotLinks = (cell.slots || [])
-    .map(
-      (slot) =>
-        `<a class="slot-link badge text-bg-light border" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
-    )
-    .join("");
+  const slotLinks = renderTimeslotBadges(cell);
 
   return `
     <td class="cell">
@@ -36,7 +50,11 @@ function buildMatrixTable(matrix, tents) {
     .map((tent) => {
       const statusCells = matrix.dates
         .map((date) => {
-          const cell = tent.matrix[date] || { status: "unavail", slots: [] };
+          const cell = tent.matrix[date] || {
+            status: "unavail",
+            slotStatus: { mittag: "unavail", abend: "unavail" },
+            slotLinks: {},
+          };
           return renderStatusCell(cell);
         })
         .join("");
@@ -68,13 +86,12 @@ function buildCardView(matrix, tents) {
     .map((tent) => {
       const rows = matrix.dates
         .map((date) => {
-          const cell = tent.matrix[date] || { status: "unavail", slots: [] };
-          const slots = (cell.slots || [])
-            .map(
-              (slot) =>
-                `<a class="slot-link badge text-bg-light border" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
-            )
-            .join(" ");
+          const cell = tent.matrix[date] || {
+            status: "unavail",
+            slotStatus: { mittag: "unavail", abend: "unavail" },
+            slotLinks: {},
+          };
+          const slots = renderTimeslotBadges(cell);
 
           return `
             <div class="d-flex justify-content-between align-items-start gap-2 py-2 border-bottom">

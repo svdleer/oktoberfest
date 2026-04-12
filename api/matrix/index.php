@@ -209,29 +209,23 @@ foreach ($venues as $venue) {
             }
         }
 
-        $availableSlots = [];
+        $slotLinks = [];
         foreach (['mittag', 'abend'] as $slotName) {
-            if (($slotStatuses[$slotName] ?? 'unavail') !== 'green') {
-                continue;
-            }
-            if ($timeslot !== 'all' && $timeslot !== $slotName) {
-                continue;
-            }
-
-            $availableSlots[] = [
-                'name' => $slotName,
-                'url' => sprintf(
-                    'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=%s&pa_wochentag=%s&pa_tageszeit=%s',
-                    rawurlencode((string) $venue['slug']),
-                    rawurlencode((string) ($weekdayByDate[$date] ?? 'samstag')),
-                    rawurlencode($slotName)
-                ),
-            ];
+            $slotLinks[$slotName] = sprintf(
+                'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=%s&pa_wochentag=%s&pa_tageszeit=%s',
+                rawurlencode((string) $venue['slug']),
+                rawurlencode((string) ($weekdayByDate[$date] ?? 'samstag')),
+                rawurlencode($slotName)
+            );
         }
 
         $matrix[$date] = [
             'status' => $status,
-            'slots' => $availableSlots,
+            'slotStatus' => [
+                'mittag' => $mittagStatus,
+                'abend' => $abendStatus,
+            ],
+            'slotLinks' => $slotLinks,
         ];
     }
 
