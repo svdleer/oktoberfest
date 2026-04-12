@@ -14,7 +14,7 @@ function statusBadgeClass(status) {
 
 function renderTimeslotBadges(cell) {
   const slots = ["mittag", "abend"];
-  const rendered = slots
+  return slots
     .map((slot) => {
       const slotStatus = cell.slotStatus?.[slot] || "unavail";
       const slotUrl = cell.slotLinks?.[slot] || "#";
@@ -32,21 +32,13 @@ function renderTimeslotBadges(cell) {
       return `<span class="${badge}">${label}</span>`;
     })
     .join("");
-
-  if (!rendered.trim()) {
-    return '<span class="badge text-bg-light border slot-badge-muted">no slots</span>';
-  }
-
-  return rendered;
 }
 
 function renderStatusCell(cell) {
-  const status = cell.status || "unavail";
   const slotLinks = renderTimeslotBadges(cell);
 
   return `
     <td class="cell">
-      <div><span class="badge ${statusBadgeClass(status)} status-label">${status}</span></div>
       <div class="slot-links">${slotLinks || ""}</div>
     </td>
   `;
