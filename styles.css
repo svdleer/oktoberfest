@@ -95,6 +95,11 @@ body {
   font-weight: 700;
 }
 
+.slot-badge-muted {
+  color: #475467 !important;
+  font-weight: 600;
+}
+
 span.slot-badge {
   opacity: 1;
 }

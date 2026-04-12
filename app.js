@@ -14,13 +14,16 @@ function statusBadgeClass(status) {
 
 function renderTimeslotBadges(cell) {
   const slots = ["mittag", "abend"];
-
-  return slots
+  const rendered = slots
     .map((slot) => {
       const slotStatus = cell.slotStatus?.[slot] || "unavail";
       const slotUrl = cell.slotLinks?.[slot] || "#";
       const badge = `slot-link slot-badge badge ${statusBadgeClass(slotStatus)}`;
       const label = `${slot}`;
+
+      if (slotStatus === "unavail") {
+        return "";
+      }
 
       if (slotStatus === "green") {
         return `<a class="${badge}" href="${slotUrl}" target="_blank" rel="noreferrer">${label}</a>`;
@@ -29,6 +32,12 @@ function renderTimeslotBadges(cell) {
       return `<span class="${badge}">${label}</span>`;
     })
     .join("");
+
+  if (!rendered.trim()) {
+    return '<span class="badge text-bg-light border slot-badge-muted">no slots</span>';
+  }
+
+  return rendered;
 }
 
 function renderStatusCell(cell) {
