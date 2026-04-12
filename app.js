@@ -82,49 +82,6 @@ function buildMatrixTable(matrix, tents) {
   `;
 }
 
-function buildCardView(matrix, tents) {
-  const cards = tents
-    .map((tent) => {
-      const rows = matrix.dates
-        .map((date) => {
-          const cell = tent.matrix[date] || {
-            status: "unavail",
-            slotStatus: { mittag: "unavail", abend: "unavail" },
-            slotLinks: {},
-          };
-          const slots = renderTimeslotBadges(cell);
-
-          return `
-            <div class="d-flex justify-content-between align-items-start gap-2 py-2 border-bottom">
-              <div class="small fw-semibold">${date}</div>
-              <div class="text-end">
-                <span class="badge ${statusBadgeClass(cell.status || "unavail")}">${cell.status || "unavail"}</span>
-                <div class="mt-1">${slots}</div>
-              </div>
-            </div>
-          `;
-        })
-        .join("");
-
-      return `
-        <div class="col-12 col-lg-6">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-              <h3 class="h6 mb-3"><a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a></h3>
-              ${rows}
-            </div>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-
-  return `
-    <h2 class="h4 mt-2 mb-3">Reservation Cards</h2>
-    <div class="row g-3 mb-4">${cards}</div>
-  `;
-}
-
 function buildVenueSummary(tents) {
   const rows = tents
     .map((tent) => {
@@ -169,10 +126,6 @@ function buildVenueSummary(tents) {
   `;
 }
 
-function currentViewMode() {
-  return document.querySelector('input[name="viewMode"]:checked')?.value || "matrix";
-}
-
 function filteredTents(matrix) {
   const filter = (venueFilterInput.value || "").trim().toLowerCase();
   if (!filter) return matrix.tents;
@@ -183,12 +136,7 @@ function renderMatrix() {
   if (!latestMatrix) return;
 
   const tents = filteredTents(latestMatrix);
-  const mainView =
-    currentViewMode() === "cards"
-      ? buildCardView(latestMatrix, tents)
-      : buildMatrixTable(latestMatrix, tents);
-
-  tableWrap.innerHTML = `${mainView}${buildVenueSummary(tents)}`;
+  tableWrap.innerHTML = `${buildMatrixTable(latestMatrix, tents)}${buildVenueSummary(tents)}`;
   output.textContent = `Loaded: ${tents.length}/${latestMatrix.tents.length} tents, timeslot=${latestMatrix.timeslot}`;
 }
 
@@ -214,8 +162,5 @@ async function loadMatrix() {
 refreshButton.addEventListener("click", loadMatrix);
 timeslotSelect.addEventListener("change", loadMatrix);
 venueFilterInput.addEventListener("input", renderMatrix);
-document.querySelectorAll('input[name="viewMode"]').forEach((el) => {
-  el.addEventListener("change", renderMatrix);
-});
 
 loadMatrix();
