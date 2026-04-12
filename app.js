@@ -3,6 +3,12 @@ const refreshButton = document.getElementById("refreshButton");
 const timeslotSelect = document.getElementById("timeslot");
 const tableWrap = document.getElementById("tableWrap");
 
+function statusBadgeClass(status) {
+  if (status === "green") return "text-bg-success";
+  if (status === "red") return "text-bg-danger";
+  return "text-bg-secondary";
+}
+
 function buildTable(matrix) {
   const headerCells = matrix.dates.map((date) => `<th>${date}</th>`).join("");
 
@@ -15,13 +21,13 @@ function buildTable(matrix) {
           const slotLinks = (cell.slots || [])
             .map(
               (slot) =>
-                `<a class="slot-link" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
+                `<a class="slot-link badge text-bg-light border" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
             )
             .join("");
 
           return `
-            <td class="cell status-${status}">
-              <div class="status-label">${status}</div>
+            <td class="cell">
+              <div><span class="badge ${statusBadgeClass(status)} status-label">${status}</span></div>
               <div class="slot-links">${slotLinks || ""}</div>
             </td>
           `;
@@ -33,8 +39,10 @@ function buildTable(matrix) {
     .join("");
 
   return `
-    <table>
-      <thead>
+    <h2 class="h4 mt-2 mb-3">Reservation Matrix</h2>
+    <div class="table-responsive mb-4">
+    <table class="table table-bordered table-striped align-middle matrix-table">
+      <thead class="table-light">
         <tr>
           <th>Tent</th>
           ${headerCells}
@@ -44,6 +52,7 @@ function buildTable(matrix) {
         ${rows}
       </tbody>
     </table>
+    </div>
   `;
 }
 
@@ -70,9 +79,10 @@ function buildVenueSummary(matrix) {
     .join("");
 
   return `
-    <h2>Ticket Types Per Venue</h2>
-    <table>
-      <thead>
+    <h2 class="h4 mt-2 mb-3">Ticket Types Per Venue</h2>
+    <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle">
+      <thead class="table-light">
         <tr>
           <th>Venue</th>
           <th>Guest Groups</th>
@@ -86,6 +96,7 @@ function buildVenueSummary(matrix) {
         ${rows}
       </tbody>
     </table>
+    </div>
   `;
 }
 
