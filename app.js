@@ -10,12 +10,25 @@ function buildTable(matrix) {
     .map((tent) => {
       const statusCells = matrix.dates
         .map((date) => {
-          const status = tent.status[date] || "unavail";
-          return `<td class="cell status-${status}">${status}</td>`;
+          const cell = tent.matrix[date] || { status: "unavail", slots: [] };
+          const status = cell.status || "unavail";
+          const slotLinks = (cell.slots || [])
+            .map(
+              (slot) =>
+                `<a class="slot-link" href="${slot.url}" target="_blank" rel="noreferrer">${slot.name}</a>`
+            )
+            .join("");
+
+          return `
+            <td class="cell status-${status}">
+              <div class="status-label">${status}</div>
+              <div class="slot-links">${slotLinks || ""}</div>
+            </td>
+          `;
         })
         .join("");
 
-      return `<tr><th>${tent.name}</th>${statusCells}</tr>`;
+      return `<tr><th><a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a></th>${statusCells}</tr>`;
     })
     .join("");
 
@@ -25,6 +38,48 @@ function buildTable(matrix) {
         <tr>
           <th>Tent</th>
           ${headerCells}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+function buildVenueSummary(matrix) {
+  const rows = matrix.tents
+    .map((tent) => {
+      const guestGroups = (tent.ticketTypes?.guestGroups || []).join(", ");
+      const tableSizes = (tent.ticketTypes?.tableSizes || []).join(", ");
+      const timeslots = (tent.ticketTypes?.timeslots || []).join(", ");
+      const sales = tent.sales?.open ? "Open" : "Closed";
+      const salesNote = tent.sales?.note || "";
+
+      return `
+        <tr>
+          <th><a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a></th>
+          <td>${guestGroups}</td>
+          <td>${tableSizes}</td>
+          <td>${timeslots}</td>
+          <td>${sales}</td>
+          <td>${salesNote}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `
+    <h2>Ticket Types Per Venue</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Venue</th>
+          <th>Guest Groups</th>
+          <th>Table Sizes</th>
+          <th>Timeslots</th>
+          <th>Ticket Sales</th>
+          <th>Sales Note</th>
         </tr>
       </thead>
       <tbody>
@@ -46,7 +101,7 @@ async function loadMatrix() {
     }
 
     const data = await response.json();
-    tableWrap.innerHTML = buildTable(data);
+    tableWrap.innerHTML = `${buildTable(data)}${buildVenueSummary(data)}`;
     output.textContent = `Loaded: ${data.tents.length} tents, timeslot=${data.timeslot}`;
   } catch (error) {
     output.textContent = `Request failed: ${error.message}`;
