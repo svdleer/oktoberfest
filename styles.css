@@ -1,11 +1,13 @@
 body {
   min-height: 100vh;
+  color: #1f2933;
   background-image: radial-gradient(circle at 10% -10%, rgba(50, 84, 111, 0.15), transparent 40%),
     radial-gradient(circle at 90% 10%, rgba(182, 112, 50, 0.15), transparent 35%);
 }
 
 .card {
   border-radius: 1rem;
+  background: #ffffff;
 }
 
 .status-chip {
@@ -19,11 +21,11 @@ body {
 }
 
 .small-status {
-  border: 1px solid var(--bs-border-color);
+  border: 1px solid #9aa8b4;
   border-radius: 0.5rem;
   padding: 0.75rem;
-  background: var(--bs-body-bg);
-  color: var(--bs-secondary-color);
+  background: #f8fafc;
+  color: #334155;
 }
 
 .table-wrap a {
@@ -38,6 +40,17 @@ body {
 .matrix-table td {
   min-width: 145px;
   vertical-align: top;
+  border-color: #98a6b5;
+}
+
+.matrix-table thead th {
+  background: #e8edf2 !important;
+  color: #1f2933;
+  font-weight: 700;
+}
+
+.matrix-table tbody tr:nth-child(even) {
+  background: #f7fafc;
 }
 
 .matrix-table thead th {
@@ -51,7 +64,7 @@ body {
   position: sticky;
   left: 0;
   z-index: 2;
-  background: var(--bs-body-bg);
+  background: #ffffff;
 }
 
 .matrix-table thead th:first-child {
@@ -79,10 +92,27 @@ body {
   text-transform: capitalize;
   min-width: 60px;
   text-align: center;
+  font-weight: 700;
 }
 
 span.slot-badge {
-  opacity: 0.9;
+  opacity: 1;
+}
+
+/* Higher-contrast badge colors than default theme shades. */
+.text-bg-success {
+  background-color: #1d7a44 !important;
+  color: #ffffff !important;
+}
+
+.text-bg-danger {
+  background-color: #b42318 !important;
+  color: #ffffff !important;
+}
+
+.text-bg-secondary {
+  background-color: #475467 !important;
+  color: #ffffff !important;
 }
 
 @media (max-width: 991px) {
