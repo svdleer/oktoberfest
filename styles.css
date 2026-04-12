@@ -35,6 +35,40 @@ h1 {
   color: #5b4d3b;
 }
 
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+label {
+  font-weight: 600;
+}
+
+select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  margin: 10px 0 16px;
+  font-size: 0.95rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
 button {
   border: 0;
   border-radius: 10px;
@@ -51,4 +85,46 @@ pre {
   background: #f8f2e9;
   border-radius: 10px;
   overflow-x: auto;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+th,
+td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+th {
+  background: #f6eee2;
+}
+
+.cell {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+.status-green {
+  background: #daf5e2;
+  color: #1c5c33;
+}
+
+.status-red {
+  background: #ffdede;
+  color: #892121;
+}
+
+.status-unavail {
+  background: #ececec;
+  color: #585858;
 }

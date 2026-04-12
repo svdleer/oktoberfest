@@ -3,16 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Oktoberfest App</title>
+    <title>Oktoberfest Reservation Matrix</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="container">
-      <h1>Oktoberfest Workspace</h1>
-      <p class="subtitle">JavaScript frontend + PHP backend starter</p>
+      <h1>Oktoberfest Reservation Matrix</h1>
+      <p class="subtitle">Live status grid by tent and date</p>
 
-      <button id="healthButton">Check API Health</button>
-      <pre id="output">Click the button to call the backend.</pre>
+      <section class="controls">
+        <label for="timeslot">Timeslot</label>
+        <select id="timeslot">
+          <option value="all">All</option>
+          <option value="mittag">Mittag</option>
+          <option value="abend">Abend</option>
+        </select>
+        <button id="refreshButton">Refresh Matrix</button>
+      </section>
+
+      <section class="legend">
+        <span><i class="dot status-green"></i>Green</span>
+        <span><i class="dot status-red"></i>Red</span>
+        <span><i class="dot status-unavail"></i>Unavail</span>
+      </section>
+
+      <div id="tableWrap" class="table-wrap">Loading matrix...</div>
+      <pre id="output">Ready.</pre>
     </main>
 
     <script src="app.js"></script>

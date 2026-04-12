@@ -5,33 +5,29 @@ JavaScript frontend + PHP backend starter project.
 ## Project Structure
 
 - `index.html`, `styles.css`, `app.js` - Static frontend at web root
-- `backend/public/index.php` - PHP API entrypoint
+- `api/health/index.php` - Health endpoint
+- `api/matrix/index.php` - Reservation matrix endpoint
+- `backend/public/index.php` - Optional local API router
 
 ## Run Locally
 
-### 1. Start the PHP backend
-
-From the repository root:
+From the repository root run one command:
 
 ```bash
-cd backend/public
-php -S localhost:8000
-```
-
-Health endpoint:
-
-- http://localhost:8000/api/health
-
-### 2. Start the frontend
-
-In a second terminal from the repository root:
-
-```bash
-python3 -m http.server 5173
+php -S localhost:8000 -t .
 ```
 
 Open:
 
-- http://localhost:5173
+- http://localhost:8000
 
-Click **Check API Health** to verify frontend -> backend connection.
+API endpoints:
+
+- http://localhost:8000/api/health/
+- http://localhost:8000/api/matrix/?timeslot=all
+
+Timeslot values:
+
+- `all`
+- `mittag`
+- `abend`
