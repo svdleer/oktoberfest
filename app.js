@@ -3,6 +3,8 @@ const refreshButton = document.getElementById("refreshButton");
 const timeslotSelect = document.getElementById("timeslot");
 const tableWrap = document.getElementById("tableWrap");
 const venueSelect = document.getElementById("venueSelect");
+const venueFilterInput = document.getElementById("venueFilter");
+const venueControl = venueSelect || venueFilterInput;
 const langEnButton = document.getElementById("langEn");
 const langDeButton = document.getElementById("langDe");
 
@@ -89,8 +91,8 @@ function applyLanguage(lang) {
     option.textContent = t(key);
   });
 
-  langEnButton.classList.toggle("active", lang === "en");
-  langDeButton.classList.toggle("active", lang === "de");
+  if (langEnButton) langEnButton.classList.toggle("active", lang === "en");
+  if (langDeButton) langDeButton.classList.toggle("active", lang === "de");
 
   if (latestMatrix) {
     renderMatrix();
@@ -218,6 +220,10 @@ function buildVenueSummary(tents) {
 }
 
 function renderVenueOptions(matrix) {
+  if (!venueSelect) {
+    return;
+  }
+
   const selected = venueSelect.value || "all";
   const options = [`<option value="all" data-i18n-option="allTents">${t("allTents")}</option>`]
     .concat(
@@ -230,11 +236,13 @@ function renderVenueOptions(matrix) {
 }
 
 function filteredTents(matrix) {
-  const selected = venueSelect.value || "all";
+  const selected = (venueControl && venueControl.value) || "all";
   if (selected === "all") {
     return matrix.tents;
   }
-  return matrix.tents.filter((tent) => tent.slug === selected);
+  return matrix.tents.filter(
+    (tent) => tent.slug === selected || tent.name.toLowerCase().includes(String(selected).toLowerCase())
+  );
 }
 
 function renderMatrix() {
@@ -267,9 +275,18 @@ async function loadMatrix() {
 
 refreshButton.addEventListener("click", loadMatrix);
 timeslotSelect.addEventListener("change", loadMatrix);
-venueSelect.addEventListener("change", renderMatrix);
-langEnButton.addEventListener("click", () => applyLanguage("en"));
-langDeButton.addEventListener("click", () => applyLanguage("de"));
+if (venueSelect) {
+  venueSelect.addEventListener("change", renderMatrix);
+}
+if (venueFilterInput) {
+  venueFilterInput.addEventListener("input", renderMatrix);
+}
+if (langEnButton) {
+  langEnButton.addEventListener("click", () => applyLanguage("en"));
+}
+if (langDeButton) {
+  langDeButton.addEventListener("click", () => applyLanguage("de"));
+}
 
 const preferredLang = localStorage.getItem("oktoberfest-lang");
 applyLanguage(preferredLang === "de" ? "de" : "en");
