@@ -220,10 +220,27 @@ function buildVenueSummary(tents) {
   `;
 }
 
+function normalizeSearchText(value) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 function filteredTents(matrix) {
-  const filter = (venueFilterInput.value || "").trim().toLowerCase();
+  const filter = normalizeSearchText(venueFilterInput.value || "");
   if (!filter) return matrix.tents;
-  return matrix.tents.filter((tent) => tent.name.toLowerCase().includes(filter));
+
+  return matrix.tents.filter((tent) => {
+    const byName = normalizeSearchText(tent.name).includes(filter);
+    const bySlug = normalizeSearchText(tent.slug).includes(filter);
+    return byName || bySlug;
+  });
 }
 
 function renderMatrix() {
