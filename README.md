@@ -36,6 +36,8 @@ Timeslot values:
 
 This project includes a monitor script that checks Fischer-Vroni availability and sends a Telegram message when status changes.
 
+The monitor now checks all configured tents and can route each tent to its own Telegram topic.
+
 ### 1. Configure bot credentials
 
 ```bash
@@ -50,6 +52,7 @@ Edit `.env.telegram`:
 - Optional `TELEGRAM_CHAT_ID` (legacy fallback)
 - Optional `TELEGRAM_MESSAGE_THREAD_ID` (for forum topics)
 - Optional `TELEGRAM_TARGET_TOPIC_MAP` for per-target topic routing
+- Optional `TELEGRAM_TENT_TOPIC_MAP` for per-tent topic routing
 - Optional `CHECK_URL`
 
 Channel requirements:
@@ -63,6 +66,7 @@ Examples for sub-channel style routing:
 ```env
 TELEGRAM_TARGETS=@oktoberfest_2026,@another_channel
 TELEGRAM_TARGET_TOPIC_MAP=@oktoberfest_2026:12,@another_channel:3
+TELEGRAM_TENT_TOPIC_MAP=fischer-vroni:11,hofbraeu-festzelt:12,hacker-festzelt:13
 ```
 
 ### 2. Manual test
@@ -95,5 +99,5 @@ This checks:
 
 Behavior:
 
-- Sends Telegram message when status changes (not available -> available, or available -> not available)
-- Stores last known status in `storage/fischer_vroni_monitor_state.json`
+- Sends Telegram message when status changes (per tent)
+- Stores last known status in `storage/oktoberfest_tent_monitor_state.json`

@@ -3,19 +3,31 @@
 declare(strict_types=1);
 
 /**
- * Fischer-Vroni availability monitor with Telegram alerts.
+ * Oktoberfest tent availability monitor with Telegram alerts.
  *
  * Usage:
  *   php scripts/fischer_vroni_telegram_monitor.php
  *   php scripts/fischer_vroni_telegram_monitor.php --force
  */
 
-const DEFAULT_CHECK_URL = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=fischer-vroni';
+const BASE_SHOP_URL = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=';
 const EMPTY_MARKER = 'Es wurden keine Produkte gefunden';
+
+const TENTS = [
+    ['name' => 'Fischer-Vroni', 'slug' => 'fischer-vroni'],
+    ['name' => 'Hofbraeu Festzelt', 'slug' => 'hofbraeu-festzelt'],
+    ['name' => 'Festhalle Pschorr Braeurosl', 'slug' => 'festhalle-pschorr-braeurosl'],
+    ['name' => 'Hacker Festzelt', 'slug' => 'hacker-festzelt'],
+    ['name' => 'Kufflers Weinzelt', 'slug' => 'kufflers-weinzelt'],
+    ['name' => 'Kaefers Wiesn Schenke', 'slug' => 'kaefers-wiesn-schaenke'],
+    ['name' => 'Marstall Festzelt', 'slug' => 'marstall-festzelt'],
+    ['name' => 'Paulaner Festzelt', 'slug' => 'paulaner-festzelt'],
+    ['name' => 'Schuetzen Festzelt', 'slug' => 'schuetzen-festzelt'],
+];
 
 $rootDir = dirname(__DIR__);
 $storageDir = $rootDir . '/storage';
-$stateFile = $storageDir . '/fischer_vroni_monitor_state.json';
+$stateFile = $storageDir . '/oktoberfest_tent_monitor_state.json';
 $envFile = $rootDir . '/.env.telegram';
 
 if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageDir)) {
@@ -26,7 +38,7 @@ if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageD
 $env = loadEnvFile($envFile);
 $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
 $targets = resolveTelegramTargets($env);
-$checkUrl = getenv('CHECK_URL') ?: ($env['CHECK_URL'] ?? DEFAULT_CHECK_URL);
+$tentTopicMap = resolveTentTopicMap($env);
 $force = in_array('--force', $argv, true);
 
 if ($botToken === '' || count($targets) === 0) {
@@ -34,63 +46,85 @@ if ($botToken === '' || count($targets) === 0) {
     exit(1);
 }
 
-$html = fetchUrl($checkUrl);
-if ($html === null) {
-    fwrite(STDERR, "Failed to fetch target URL: {$checkUrl}\n");
-    exit(2);
-}
-
-$isAvailable = detectAvailability($html);
 $state = loadState($stateFile);
-$previous = $state['isAvailable'] ?? null;
-$changed = ($previous === null) || ((bool) $previous !== $isAvailable);
+$state['tents'] = is_array($state['tents'] ?? null) ? $state['tents'] : [];
 
-$state['isAvailable'] = $isAvailable;
-$state['checkedAt'] = date(DATE_ATOM);
-$state['lastCheckUrl'] = $checkUrl;
+$failedTargets = [];
+$changeCount = 0;
 
-saveState($stateFile, $state);
+foreach (TENTS as $tent) {
+    $tentName = (string) $tent['name'];
+    $slug = (string) $tent['slug'];
+    $checkUrl = BASE_SHOP_URL . rawurlencode($slug);
 
-$statusText = $isAvailable ? 'AVAILABLE' : 'NOT AVAILABLE';
-echo sprintf("[%s] Fischer-Vroni: %s\n", date('Y-m-d H:i:s'), $statusText);
+    $html = fetchUrl($checkUrl);
+    if ($html === null) {
+        fwrite(STDERR, "Failed to fetch target URL: {$checkUrl}\n");
+        continue;
+    }
 
-if ($force || $changed) {
+    $isAvailable = detectAvailability($html, $slug);
+    $previous = $state['tents'][$slug]['isAvailable'] ?? null;
+    $changed = ($previous === null) || ((bool) $previous !== $isAvailable);
+
+    $state['tents'][$slug] = [
+        'name' => $tentName,
+        'isAvailable' => $isAvailable,
+        'checkedAt' => date(DATE_ATOM),
+        'lastCheckUrl' => $checkUrl,
+    ];
+
+    $statusText = $isAvailable ? 'AVAILABLE' : 'NOT AVAILABLE';
+    echo sprintf("[%s] %s: %s\n", date('Y-m-d H:i:s'), $tentName, $statusText);
+
+    if (!$force && !$changed) {
+        continue;
+    }
+
+    $changeCount++;
     $changeText = $previous === null
         ? 'Initial status check'
         : (($isAvailable ? 'Status changed: AVAILABLE' : 'Status changed: NOT AVAILABLE'));
 
     $message = implode("\n", [
         'Oktoberfest Monitor',
-        'Tent: Fischer-Vroni',
+        'Tent: ' . $tentName,
         $changeText,
         'Current: ' . $statusText,
         'Time: ' . date('Y-m-d H:i:s'),
         'URL: ' . $checkUrl,
     ]);
 
-    $failedTargets = [];
     foreach ($targets as $targetConfig) {
+        $threadId = $tentTopicMap[$slug] ?? $targetConfig['thread_id'];
+        $targetChatId = (string) $targetConfig['chat_id'];
+
         $sent = sendTelegramMessage(
             $botToken,
-            (string) $targetConfig['chat_id'],
+            $targetChatId,
             $message,
-            $targetConfig['thread_id']
+            $threadId
         );
 
         if (!$sent) {
-            $failedTargets[] = (string) $targetConfig['chat_id'];
+            $failedTargets[] = $targetChatId . ' [' . $slug . ']';
             continue;
         }
 
-        echo sprintf("Telegram notification sent to %s.\n", (string) $targetConfig['chat_id']);
+        echo sprintf("Telegram notification sent to %s (%s).\n", $targetChatId, $slug);
     }
+}
 
-    if (count($failedTargets) > 0) {
-        fwrite(STDERR, 'Telegram send failed for: ' . implode(', ', $failedTargets) . "\n");
-        exit(3);
-    }
-} else {
-    echo "No status change, no Telegram message sent.\n";
+$state['checkedAt'] = date(DATE_ATOM);
+saveState($stateFile, $state);
+
+if ($changeCount === 0) {
+    echo "No status changes, no Telegram messages sent.\n";
+}
+
+if (count($failedTargets) > 0) {
+    fwrite(STDERR, 'Telegram send failed for: ' . implode(', ', $failedTargets) . "\n");
+    exit(3);
 }
 
 exit(0);
@@ -152,14 +186,14 @@ function fetchUrl(string $url): ?string
     return $content;
 }
 
-function detectAvailability(string $html): bool
+function detectAvailability(string $html, string $slug): bool
 {
     if (stripos($html, EMPTY_MARKER) !== false) {
         return false;
     }
 
     // Basic positive signal for product listings.
-    return stripos($html, '/shop/fischer-vroni-') !== false || stripos($html, 'Preisspanne:') !== false;
+    return stripos($html, '/shop/' . $slug . '-') !== false || stripos($html, 'Preisspanne:') !== false;
 }
 
 function loadState(string $path): array
@@ -230,6 +264,32 @@ function resolveTelegramTargets(array $env): array
     }
 
     return $resolved;
+}
+
+function resolveTentTopicMap(array $env): array
+{
+    $raw = getenv('TELEGRAM_TENT_TOPIC_MAP') ?: ($env['TELEGRAM_TENT_TOPIC_MAP'] ?? '');
+    $entries = array_values(array_filter(array_map('trim', explode(',', $raw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    $map = [];
+    foreach ($entries as $entry) {
+        $parts = explode(':', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $slug = trim($parts[0]);
+        $threadRaw = trim($parts[1]);
+        if ($slug === '' || !ctype_digit($threadRaw)) {
+            continue;
+        }
+
+        $map[$slug] = (int) $threadRaw;
+    }
+
+    return $map;
 }
 
 function sendTelegramMessage(string $botToken, string $target, string $message, ?int $threadId): bool
