@@ -91,6 +91,17 @@ This checks:
 - `getChat` (bot access to target channel)
 - `sendMessage` (actual posting permission)
 
+### 2c. Auto-create one topic per tent
+
+If your target is a forum-enabled Telegram chat and the bot has admin rights,
+you can auto-create one topic per tent and write the resulting mapping to `.env.telegram`:
+
+```bash
+php scripts/telegram_create_tent_topics.php
+```
+
+This updates `TELEGRAM_TENT_TOPIC_MAP` automatically.
+
 ### 3. Run every 10 minutes via cron
 
 ```bash
