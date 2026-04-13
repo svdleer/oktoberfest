@@ -42,6 +42,10 @@ $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
 $targets = resolveTelegramTargets($env);
 $tentTopicMap = resolveTentTopicMap($env);
 $fischerVroniOfficialUrl = getenv('FISCHER_VRONI_OFFICIAL_URL') ?: ($env['FISCHER_VRONI_OFFICIAL_URL'] ?? FISCHER_VRONI_OFFICIAL_DEFAULT_URL);
+$fischerVroniFormatAlertEnabled = envBool(
+    getenv('FISCHER_VRONI_FORMAT_ALERT') ?: ($env['FISCHER_VRONI_FORMAT_ALERT'] ?? 'true'),
+    true
+);
 $force = in_array('--force', $argv, true);
 
 if ($botToken === '' || count($targets) === 0) {
@@ -68,10 +72,23 @@ foreach (TENTS as $tent) {
 
     $marketIsAvailable = detectAvailability($html, $slug);
     $officialSignal = null;
+    $officialFingerprintHash = null;
+    $officialFingerprintSignal = null;
+    $formatChanged = false;
+    $previousFingerprint = null;
     if ($slug === 'fischer-vroni') {
         $officialHtml = fetchUrl($fischerVroniOfficialUrl);
         if ($officialHtml !== null) {
             $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
+
+            $fingerprint = buildFischerVroniFingerprint($officialHtml);
+            $officialFingerprintHash = $fingerprint['hash'];
+            $officialFingerprintSignal = $fingerprint['signal'];
+            $previousFingerprint = $state['tents'][$slug]['officialFingerprintHash'] ?? null;
+            $formatChanged = $fischerVroniFormatAlertEnabled
+                && $previousFingerprint !== null
+                && $officialFingerprintHash !== null
+                && $previousFingerprint !== $officialFingerprintHash;
         }
     }
 
@@ -84,12 +101,14 @@ foreach (TENTS as $tent) {
         'isAvailable' => $isAvailable,
         'checkedAt' => date(DATE_ATOM),
         'lastCheckUrl' => $checkUrl,
+        'officialFingerprintHash' => $officialFingerprintHash,
+        'officialFingerprintSignal' => $officialFingerprintSignal,
     ];
 
     $statusText = $isAvailable ? 'AVAILABLE' : 'NOT AVAILABLE';
     echo sprintf("[%s] %s: %s\n", date('Y-m-d H:i:s'), $tentName, $statusText);
 
-    if (!$force && !$changed) {
+    if (!$force && !$changed && !$formatChanged) {
         continue;
     }
 
@@ -97,6 +116,9 @@ foreach (TENTS as $tent) {
     $changeText = $previous === null
         ? 'Initial status check'
         : (($isAvailable ? 'Status changed: AVAILABLE' : 'Status changed: NOT AVAILABLE'));
+    if (!$changed && $formatChanged) {
+        $changeText = 'Official page signal format changed';
+    }
 
     $signalSource = $officialSignal !== null ? 'official_fischer_vroni_portal' : 'marketplace_fallback';
 
@@ -112,6 +134,12 @@ foreach (TENTS as $tent) {
 
     if ($slug === 'fischer-vroni' && $officialSignal !== null) {
         $message .= "\nOfficial URL: " . $fischerVroniOfficialUrl;
+        if ($formatChanged) {
+            $message .= "\nSignal checksum changed";
+            if ($previousFingerprint !== null && $officialFingerprintHash !== null) {
+                $message .= "\nFingerprint: " . substr((string) $previousFingerprint, 0, 12) . ' -> ' . substr((string) $officialFingerprintHash, 0, 12);
+            }
+        }
     }
 
     foreach ($targets as $targetConfig) {
@@ -231,6 +259,27 @@ function detectFischerVroniOfficialAvailability(string $html): ?bool
 
     // Unknown/changed page format -> let caller fallback to marketplace source.
     return null;
+}
+
+function buildFischerVroniFingerprint(string $html): array
+{
+    $text = strip_tags($html);
+    $text = preg_replace('/\s+/u', ' ', $text) ?? '';
+    $text = trim($text);
+
+    $signal = '';
+    if (preg_match('/Reservierungen.{0,260}/u', $text, $matches) === 1) {
+        $signal = trim((string) $matches[0]);
+    }
+
+    if ($signal === '') {
+        $signal = substr($text, 0, 260);
+    }
+
+    return [
+        'hash' => hash('sha256', $signal),
+        'signal' => $signal,
+    ];
 }
 
 function loadState(string $path): array
@@ -356,4 +405,16 @@ function sendTelegramMessage(string $botToken, string $target, string $message, 
     $response = @file_get_contents($url, false, $context);
 
     return $response !== false;
+}
+
+function envBool(string $value, bool $default): bool
+{
+    $normalized = strtolower(trim($value));
+    if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+        return true;
+    }
+    if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+        return false;
+    }
+    return $default;
 }
