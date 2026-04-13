@@ -186,6 +186,9 @@ $weekdayByDate = [
     '03.10.2026 (Sa)' => 'samstag',
 ];
 
+$imageCachePath = dirname(__DIR__, 2) . '/storage/tent_image_cache.json';
+$imageCache = loadImageCache($imageCachePath);
+
 $tents = [];
 foreach ($venues as $venue) {
     $matrix = [];
@@ -233,14 +236,87 @@ foreach ($venues as $venue) {
         'name' => $venue['name'],
         'slug' => $venue['slug'],
         'reservationUrl' => 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=' . rawurlencode((string) $venue['slug']),
+        'imageUrl' => resolveTentImageUrl((string) $venue['slug'], $imageCache),
         'ticketTypes' => $venue['ticketTypes'],
         'sales' => $venue['sales'],
         'matrix' => $matrix,
     ];
 }
 
+saveImageCache($imageCachePath, $imageCache);
+
 echo json_encode([
     'timeslot' => $timeslot,
     'dates' => $dates,
     'tents' => $tents,
 ], JSON_UNESCAPED_SLASHES);
+
+function resolveTentImageUrl(string $slug, array &$cache): string
+{
+    $now = time();
+    $ttlSeconds = 24 * 60 * 60;
+
+    $cached = $cache[$slug] ?? null;
+    if (
+        is_array($cached)
+        && isset($cached['url'], $cached['fetchedAt'])
+        && is_string($cached['url'])
+        && is_int($cached['fetchedAt'])
+        && ($now - $cached['fetchedAt']) < $ttlSeconds
+    ) {
+        return $cached['url'];
+    }
+
+    $sourceUrl = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=' . rawurlencode($slug);
+    $html = @file_get_contents($sourceUrl);
+
+    $imageUrl = '';
+    if (is_string($html) && $html !== '') {
+        if (preg_match('/<meta\\s+property="og:image"\\s+content="([^"]+)"/i', $html, $m) === 1) {
+            $imageUrl = trim((string) $m[1]);
+        }
+
+        if ($imageUrl === '' && preg_match('/<img[^>]+src="([^"]+)"/i', $html, $m2) === 1) {
+            $candidate = trim((string) $m2[1]);
+            if (preg_match('/^https?:\\/\\//i', $candidate) === 1) {
+                $imageUrl = $candidate;
+            }
+        }
+    }
+
+    if ($imageUrl === '') {
+        $imageUrl = 'https://picsum.photos/seed/' . rawurlencode($slug) . '/320/180';
+    }
+
+    $cache[$slug] = [
+        'url' => $imageUrl,
+        'fetchedAt' => $now,
+    ];
+
+    return $imageUrl;
+}
+
+function loadImageCache(string $path): array
+{
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $raw = file_get_contents($path);
+    if ($raw === false || trim($raw) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function saveImageCache(string $path, array $cache): void
+{
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+
+    @file_put_contents($path, json_encode($cache, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+}

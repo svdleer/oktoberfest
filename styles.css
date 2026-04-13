@@ -46,6 +46,21 @@ body {
   text-decoration: underline;
 }
 
+.tent-head-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tent-thumb {
+  width: 58px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #cfd8e3;
+  flex-shrink: 0;
+}
+
 .matrix-table th,
 .matrix-table td {
   min-width: 145px;

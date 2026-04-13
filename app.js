@@ -157,7 +157,21 @@ function buildMatrixTable(matrix, tents) {
         })
         .join("");
 
-      return `<tr><th><a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a></th>${statusCells}</tr>`;
+      const image = tent.imageUrl
+        ? `<img src="${tent.imageUrl}" alt="${tent.name}" class="tent-thumb" loading="lazy" />`
+        : "";
+
+      return `
+        <tr>
+          <th>
+            <div class="tent-head-cell">
+              ${image}
+              <a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a>
+            </div>
+          </th>
+          ${statusCells}
+        </tr>
+      `;
     })
     .join("");
 
@@ -188,9 +202,18 @@ function buildVenueSummary(tents) {
       const sales = tent.sales?.open ? t("open") : t("closed");
       const salesNote = tent.sales?.note || "";
 
+      const image = tent.imageUrl
+        ? `<img src="${tent.imageUrl}" alt="${tent.name}" class="tent-thumb" loading="lazy" />`
+        : "";
+
       return `
         <tr>
-          <th><a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a></th>
+          <th>
+            <div class="tent-head-cell">
+              ${image}
+              <a href="${tent.reservationUrl}" target="_blank" rel="noreferrer">${tent.name}</a>
+            </div>
+          </th>
           <td>${guestGroups}</td>
           <td>${tableSizes}</td>
           <td>${timeslots}</td>
