@@ -123,7 +123,7 @@ foreach (TENTS as $tent) {
     $statusText = $isAvailable ? 'AVAILABLE' : 'NOT AVAILABLE';
     echo sprintf("[%s] %s: %s\n", date('Y-m-d H:i:s'), $tentName, $statusText);
 
-    if (!$force && !$changed && !$formatChanged && !$activationChanged) {
+        if (!$force && !$changed) {
         continue;
     }
 
@@ -164,7 +164,7 @@ foreach (TENTS as $tent) {
         }
     }
 
-    if ($slug === 'fischer-vroni' && $formatChanged) {
+    if ($slug === 'fischer-vroni' && $formatChanged && ($changed || $force)) {
         $formatMessage = implode("\n", [
             'Oktoberfest Monitor',
             'Tent: Fischer-Vroni',
@@ -192,7 +192,7 @@ foreach (TENTS as $tent) {
 
     if ($slug === 'fischer-vroni') {
         $activationJustOpened = $activationChanged && $activationDetected && !$previousActivationDetected;
-        $shouldSendActivationSignal = $activationJustOpened || ($force && $activationDetected);
+        $shouldSendActivationSignal = ($changed || $force) && ($activationJustOpened || ($force && $activationDetected));
 
         if ($shouldSendActivationSignal) {
             $activationMessage = implode("\n", [
