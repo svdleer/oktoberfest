@@ -46,6 +46,8 @@ $fischerVroniFormatAlertEnabled = envBool(
     getenv('FISCHER_VRONI_FORMAT_ALERT') ?: ($env['FISCHER_VRONI_FORMAT_ALERT'] ?? 'true'),
     true
 );
+$fischerVroniFormatTopicRaw = getenv('FISCHER_VRONI_FORMAT_TOPIC_ID') ?: ($env['FISCHER_VRONI_FORMAT_TOPIC_ID'] ?? '');
+$fischerVroniFormatTopicId = ctype_digit((string) $fischerVroniFormatTopicRaw) ? (int) $fischerVroniFormatTopicRaw : null;
 $force = in_array('--force', $argv, true);
 
 if ($botToken === '' || count($targets) === 0) {
@@ -76,11 +78,11 @@ foreach (TENTS as $tent) {
     $officialFingerprintSignal = null;
     $formatChanged = false;
     $previousFingerprint = null;
+
     if ($slug === 'fischer-vroni') {
         $officialHtml = fetchUrl($fischerVroniOfficialUrl);
         if ($officialHtml !== null) {
             $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
-
             $fingerprint = buildFischerVroniFingerprint($officialHtml);
             $officialFingerprintHash = $fingerprint['hash'];
             $officialFingerprintSignal = $fingerprint['signal'];
@@ -116,9 +118,6 @@ foreach (TENTS as $tent) {
     $changeText = $previous === null
         ? 'Initial status check'
         : (($isAvailable ? 'Status changed: AVAILABLE' : 'Status changed: NOT AVAILABLE'));
-    if (!$changed && $formatChanged) {
-        $changeText = 'Official page signal format changed';
-    }
 
     $signalSource = $officialSignal !== null ? 'official_fischer_vroni_portal' : 'marketplace_fallback';
 
@@ -134,31 +133,48 @@ foreach (TENTS as $tent) {
 
     if ($slug === 'fischer-vroni' && $officialSignal !== null) {
         $message .= "\nOfficial URL: " . $fischerVroniOfficialUrl;
-        if ($formatChanged) {
-            $message .= "\nSignal checksum changed";
-            if ($previousFingerprint !== null && $officialFingerprintHash !== null) {
-                $message .= "\nFingerprint: " . substr((string) $previousFingerprint, 0, 12) . ' -> ' . substr((string) $officialFingerprintHash, 0, 12);
+    }
+
+    $shouldSendStandardSignal = $changed || $force;
+    if ($shouldSendStandardSignal) {
+        foreach ($targets as $targetConfig) {
+            $threadId = $tentTopicMap[$slug] ?? $targetConfig['thread_id'];
+            $targetChatId = (string) $targetConfig['chat_id'];
+
+            $sent = sendTelegramMessage($botToken, $targetChatId, $message, $threadId);
+            if (!$sent) {
+                $failedTargets[] = $targetChatId . ' [' . $slug . ']';
+                continue;
             }
+
+            echo sprintf("Telegram notification sent to %s (%s).\n", $targetChatId, $slug);
         }
     }
 
-    foreach ($targets as $targetConfig) {
-        $threadId = $tentTopicMap[$slug] ?? $targetConfig['thread_id'];
-        $targetChatId = (string) $targetConfig['chat_id'];
+    if ($slug === 'fischer-vroni' && $formatChanged) {
+        $formatMessage = implode("\n", [
+            'Oktoberfest Monitor',
+            'Tent: Fischer-Vroni',
+            'Official page signal format changed',
+            'Current: ' . $statusText,
+            'Signal source: official_fischer_vroni_portal',
+            'Time: ' . date('Y-m-d H:i:s'),
+            'Official URL: ' . $fischerVroniOfficialUrl,
+            'Fingerprint: ' . substr((string) ($previousFingerprint ?? ''), 0, 12) . ' -> ' . substr((string) ($officialFingerprintHash ?? ''), 0, 12),
+        ]);
 
-        $sent = sendTelegramMessage(
-            $botToken,
-            $targetChatId,
-            $message,
-            $threadId
-        );
+        foreach ($targets as $targetConfig) {
+            $targetChatId = (string) $targetConfig['chat_id'];
+            $threadId = $fischerVroniFormatTopicId ?? ($tentTopicMap[$slug] ?? $targetConfig['thread_id']);
 
-        if (!$sent) {
-            $failedTargets[] = $targetChatId . ' [' . $slug . ']';
-            continue;
+            $sent = sendTelegramMessage($botToken, $targetChatId, $formatMessage, $threadId);
+            if (!$sent) {
+                $failedTargets[] = $targetChatId . ' [' . $slug . ':format-change]';
+                continue;
+            }
+
+            echo sprintf("Format-change alert sent to %s (%s).\n", $targetChatId, $slug);
         }
-
-        echo sprintf("Telegram notification sent to %s (%s).\n", $targetChatId, $slug);
     }
 }
 
@@ -239,7 +255,6 @@ function detectAvailability(string $html, string $slug): bool
         return false;
     }
 
-    // Basic positive signal for product listings.
     return stripos($html, '/shop/' . $slug . '-') !== false || stripos($html, 'Preisspanne:') !== false;
 }
 
@@ -253,11 +268,9 @@ function detectFischerVroniOfficialAvailability(string $html): ?bool
         stripos($html, 'Reservierungen') !== false &&
         stripos($html, FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER) === false
     ) {
-        // No explicit "no availability" marker present on official page.
         return true;
     }
 
-    // Unknown/changed page format -> let caller fallback to marketplace source.
     return null;
 }
 
