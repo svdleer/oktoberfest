@@ -123,14 +123,20 @@ php scripts/telegram_status_command_listener.php
 Example cron:
 
 ```bash
-* * * * * cd /Users/silvester/PythonDev/Git/oktoberfest && /usr/bin/php scripts/telegram_status_command_listener.php >> storage/status-listener.log 2>&1
+* * * * * /opt/plesk/php/8.2/bin/php /var/www/vhosts/<domain>/httpdocs/scripts/telegram_status_command_listener.php >> /var/www/vhosts/<domain>/httpdocs/storage/status-listener.log 2>&1
 ```
 
 ### 3. Run every 10 minutes via cron
 
 ```bash
-*/10 * * * * cd /Users/silvester/PythonDev/Git/oktoberfest && /usr/bin/php scripts/fischer_vroni_telegram_monitor.php >> storage/monitor.log 2>&1
+*/10 * * * * /opt/plesk/php/8.2/bin/php /var/www/vhosts/<domain>/httpdocs/scripts/fischer_vroni_telegram_monitor.php >> /var/www/vhosts/<domain>/httpdocs/storage/monitor.log 2>&1
 ```
+
+Plesk notes:
+
+- If your subscription uses another PHP version, replace `8.2` with your installed version (for example `8.1` or `8.3`).
+- Use absolute paths only in Plesk cron tasks.
+- Make sure `/var/www/vhosts/<domain>/httpdocs/storage` exists and is writable.
 
 Behavior:
 
