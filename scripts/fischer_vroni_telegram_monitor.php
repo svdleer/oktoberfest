@@ -14,6 +14,16 @@ const BASE_SHOP_URL = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa
 const EMPTY_MARKER = 'Es wurden keine Produkte gefunden';
 const FISCHER_VRONI_OFFICIAL_DEFAULT_URL = 'https://reservierung.fischer-vroni.de/reservation';
 const FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER = 'Aktuell gibt es keine Verfügbarkeiten.';
+const DEFAULT_OFFICIAL_TENT_URL_MAP = [
+    'fischer-vroni' => 'https://reservierung.fischer-vroni.de/reservation',
+    'hofbraeu-festzelt' => 'https://reservierung.hb-festzelt.de/reservierung',
+    'festhalle-pschorr-braeurosl' => 'https://reservierung.braeurosl.de/',
+    'hacker-festzelt' => 'https://reservierung.derhimmelderbayern.de/',
+    'kaefers-wiesn-schaenke' => 'https://wiesnresmittag.kaefer-wiesn.de/',
+    'marstall-festzelt' => 'https://reservierung.marstall-oktoberfest.de/',
+    'schuetzen-festzelt' => 'https://schuetzen-festzelt.de/de/reservierung.html',
+    'paulaner-festzelt' => 'https://reservierung.paulanerfestzelt.de/',
+];
 
 const TENTS = [
     ['name' => 'Fischer-Vroni', 'slug' => 'fischer-vroni'],
@@ -42,6 +52,8 @@ $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
 $targets = resolveTelegramTargets($env);
 $tentTopicMap = resolveTentTopicMap($env);
 $fischerVroniOfficialUrl = getenv('FISCHER_VRONI_OFFICIAL_URL') ?: ($env['FISCHER_VRONI_OFFICIAL_URL'] ?? FISCHER_VRONI_OFFICIAL_DEFAULT_URL);
+$officialTentUrlMap = resolveOfficialTentUrlMap($env);
+$officialTentUrlMap['fischer-vroni'] = $fischerVroniOfficialUrl;
 $fischerVroniFormatAlertEnabled = envBool(
     getenv('FISCHER_VRONI_FORMAT_ALERT') ?: ($env['FISCHER_VRONI_FORMAT_ALERT'] ?? 'true'),
     true
@@ -88,21 +100,26 @@ foreach (TENTS as $tent) {
     $activationChanged = false;
     $previousActivationDetected = false;
 
-    if ($slug === 'fischer-vroni') {
-        $officialHtml = fetchUrl($fischerVroniOfficialUrl);
+    $officialUrl = $officialTentUrlMap[$slug] ?? null;
+    if (is_string($officialUrl) && $officialUrl !== '') {
+        $officialHtml = fetchUrl($officialUrl);
         if ($officialHtml !== null) {
-            $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
-            $activationDetected = detectFischerVroniActivationSignal($officialHtml);
-            $previousActivationDetected = (bool) ($state['tents'][$slug]['activationDetected'] ?? false);
-            $activationChanged = $fischerVroniActivationAlertEnabled && ($activationDetected !== $previousActivationDetected);
-            $fingerprint = buildFischerVroniFingerprint($officialHtml);
-            $officialFingerprintHash = $fingerprint['hash'];
-            $officialFingerprintSignal = $fingerprint['signal'];
-            $previousFingerprint = $state['tents'][$slug]['officialFingerprintHash'] ?? null;
-            $formatChanged = $fischerVroniFormatAlertEnabled
-                && $previousFingerprint !== null
-                && $officialFingerprintHash !== null
-                && $previousFingerprint !== $officialFingerprintHash;
+            if ($slug === 'fischer-vroni') {
+                $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
+                $activationDetected = detectFischerVroniActivationSignal($officialHtml);
+                $previousActivationDetected = (bool) ($state['tents'][$slug]['activationDetected'] ?? false);
+                $activationChanged = $fischerVroniActivationAlertEnabled && ($activationDetected !== $previousActivationDetected);
+                $fingerprint = buildFischerVroniFingerprint($officialHtml);
+                $officialFingerprintHash = $fingerprint['hash'];
+                $officialFingerprintSignal = $fingerprint['signal'];
+                $previousFingerprint = $state['tents'][$slug]['officialFingerprintHash'] ?? null;
+                $formatChanged = $fischerVroniFormatAlertEnabled
+                    && $previousFingerprint !== null
+                    && $officialFingerprintHash !== null
+                    && $previousFingerprint !== $officialFingerprintHash;
+            } else {
+                $officialSignal = detectGenericOfficialAvailability($officialHtml);
+            }
         }
     }
 
@@ -132,7 +149,9 @@ foreach (TENTS as $tent) {
         ? 'Initial status check'
         : (($isAvailable ? 'Status changed: AVAILABLE' : 'Status changed: NOT AVAILABLE'));
 
-    $signalSource = $officialSignal !== null ? 'official_fischer_vroni_portal' : 'marketplace_fallback';
+    $signalSource = $officialSignal !== null
+        ? ('official_portal:' . ($officialUrl ?? 'unknown'))
+        : 'marketplace_fallback';
 
     $message = implode("\n", [
         'Oktoberfest Monitor',
@@ -144,8 +163,8 @@ foreach (TENTS as $tent) {
         'URL: ' . $checkUrl,
     ]);
 
-    if ($slug === 'fischer-vroni' && $officialSignal !== null) {
-        $message .= "\nOfficial URL: " . $fischerVroniOfficialUrl;
+    if ($officialSignal !== null && is_string($officialUrl) && $officialUrl !== '') {
+        $message .= "\nOfficial URL: " . $officialUrl;
     }
 
     $shouldSendStandardSignal = $changed || $force;
@@ -333,6 +352,40 @@ function detectFischerVroniActivationSignal(string $html): bool
     return $hasBookingListId || $hasSeatplanArea || $hasDateValue;
 }
 
+function detectGenericOfficialAvailability(string $html): ?bool
+{
+    $negativeMarkers = [
+        'keine verfügbarkeiten',
+        'keine verfuegbarkeiten',
+        'aktuell gibt es keine',
+        'derzeit keine',
+        'momentan keine',
+        'ausgebucht',
+    ];
+
+    foreach ($negativeMarkers as $marker) {
+        if (stripos($html, $marker) !== false) {
+            return false;
+        }
+    }
+
+    $positiveMarkers = [
+        'reservierung',
+        'reservierungen',
+        'buchung',
+        'verfügbarkeit',
+        'verfuegbarkeit',
+    ];
+
+    foreach ($positiveMarkers as $marker) {
+        if (stripos($html, $marker) !== false) {
+            return true;
+        }
+    }
+
+    return null;
+}
+
 function buildFischerVroniFingerprint(string $html): array
 {
     $text = strip_tags($html);
@@ -489,4 +542,35 @@ function envBool(string $value, bool $default): bool
         return false;
     }
     return $default;
+}
+
+function resolveOfficialTentUrlMap(array $env): array
+{
+    $map = DEFAULT_OFFICIAL_TENT_URL_MAP;
+
+    $raw = getenv('OFFICIAL_TENT_URL_MAP') ?: ($env['OFFICIAL_TENT_URL_MAP'] ?? '');
+    if ($raw === '') {
+        return $map;
+    }
+
+    $entries = array_values(array_filter(array_map('trim', explode(',', $raw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    foreach ($entries as $entry) {
+        $parts = explode(':', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $slug = trim($parts[0]);
+        $url = trim($parts[1]);
+        if ($slug === '' || $url === '') {
+            continue;
+        }
+
+        $map[$slug] = $url;
+    }
+
+    return $map;
 }

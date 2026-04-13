@@ -268,11 +268,13 @@ function resolveTentImageUrl(string $slug, array &$cache): string
         return $cached['url'];
     }
 
-    $sourceUrl = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=' . rawurlencode($slug);
-    $html = @file_get_contents($sourceUrl);
-
     $imageUrl = '';
-    if (is_string($html) && $html !== '') {
+    foreach (resolveTentImageSourceUrls($slug) as $sourceUrl) {
+        $html = @file_get_contents($sourceUrl);
+        if (!is_string($html) || $html === '') {
+            continue;
+        }
+
         $imageUrl = extractBestTentImageFromHtml($html);
 
         if ($imageUrl === '' && preg_match('/<meta\\s+property="og:image"\\s+content="([^"]+)"/i', $html, $m) === 1) {
@@ -280,6 +282,10 @@ function resolveTentImageUrl(string $slug, array &$cache): string
             if (!isGenericImageUrl($candidate)) {
                 $imageUrl = $candidate;
             }
+        }
+
+        if ($imageUrl !== '') {
+            break;
         }
     }
 
@@ -293,6 +299,29 @@ function resolveTentImageUrl(string $slug, array &$cache): string
     ];
 
     return $imageUrl;
+}
+
+function resolveTentImageSourceUrls(string $slug): array
+{
+    $mainDomains = [
+        'fischer-vroni' => 'https://www.fischer-vroni.de/',
+        'hofbraeu-festzelt' => 'https://hb-festzelt.de/',
+        'festhalle-pschorr-braeurosl' => 'https://www.braeurosl.de/',
+        'hacker-festzelt' => 'https://www.derhimmelderbayern.de/',
+        'kaefers-wiesn-schaenke' => 'https://www.kaefer-wiesn.de/',
+        'marstall-festzelt' => 'https://www.marstall-oktoberfest.de/',
+        'paulaner-festzelt' => 'https://www.stiftl-oktoberfest.de/',
+        'schuetzen-festzelt' => 'https://schuetzen-festzelt.de/',
+    ];
+
+    $sources = [];
+    if (isset($mainDomains[$slug])) {
+        $sources[] = $mainDomains[$slug];
+    }
+
+    $sources[] = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=' . rawurlencode($slug);
+
+    return $sources;
 }
 
 function extractBestTentImageFromHtml(string $html): string
