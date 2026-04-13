@@ -325,7 +325,6 @@ function fetchUrl(string $url): ?string
 
         $body = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
 
         if (is_string($body) && $body !== '' && $httpCode >= 200 && $httpCode < 400) {
             return $body;
