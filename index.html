@@ -34,13 +34,10 @@
                   <option value="mittag" data-i18n-option="mittag">Mittag</option>
                   <option value="abend" data-i18n-option="abend">Abend</option>
                 </select>
-                <input
-                  id="venueFilter"
-                  class="form-control"
-                  type="search"
-                  placeholder="Filter venue..."
-                  aria-label="Filter venue"
-                />
+                <label for="venueSelect" class="form-label mb-0 fw-semibold" data-i18n="venueLabel">Venue</label>
+                <select id="venueSelect" class="form-select">
+                  <option value="all" data-i18n-option="allTents">All tents</option>
+                </select>
                 <button id="refreshButton" class="btn btn-primary" data-i18n="refresh">Refresh</button>
               </div>
 

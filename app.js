@@ -2,7 +2,7 @@ const output = document.getElementById("output");
 const refreshButton = document.getElementById("refreshButton");
 const timeslotSelect = document.getElementById("timeslot");
 const tableWrap = document.getElementById("tableWrap");
-const venueFilterInput = document.getElementById("venueFilter");
+const venueSelect = document.getElementById("venueSelect");
 const langEnButton = document.getElementById("langEn");
 const langDeButton = document.getElementById("langDe");
 
@@ -14,12 +14,12 @@ const I18N = {
     title: "Oktoberfest Reservation Matrix",
     subtitle: "Live status grid by tent, date, and timeslot",
     timeslotLabel: "Timeslot",
+    venueLabel: "Venue",
     refresh: "Refresh",
     legendGreen: "Green = Available",
     legendRed: "Red = No products",
     legendGray: "Unavail = Not offered",
-    filterPlaceholder: "Filter venue...",
-    filterAria: "Filter venue",
+    allTents: "All tents",
     matrixTitle: "Reservation Matrix",
     matrixTent: "Tent",
     venueTitle: "Ticket Types Per Venue",
@@ -43,12 +43,12 @@ const I18N = {
     title: "Oktoberfest Reservierungs-Matrix",
     subtitle: "Live-Status nach Zelt, Datum und Zeitslot",
     timeslotLabel: "Zeitslot",
+    venueLabel: "Zelt",
     refresh: "Aktualisieren",
     legendGreen: "Gruen = Verfuegbar",
     legendRed: "Rot = Keine Produkte",
     legendGray: "Unavail = Nicht angeboten",
-    filterPlaceholder: "Zelt filtern...",
-    filterAria: "Zelt filtern",
+    allTents: "Alle Zelte",
     matrixTitle: "Reservierungs-Matrix",
     matrixTent: "Zelt",
     venueTitle: "Ticketarten pro Zelt",
@@ -83,9 +83,6 @@ function applyLanguage(lang) {
     const key = el.getAttribute("data-i18n");
     el.textContent = t(key);
   });
-
-  venueFilterInput.placeholder = t("filterPlaceholder");
-  venueFilterInput.setAttribute("aria-label", t("filterAria"));
 
   document.querySelectorAll("[data-i18n-option]").forEach((option) => {
     const key = option.getAttribute("data-i18n-option");
@@ -220,32 +217,30 @@ function buildVenueSummary(tents) {
   `;
 }
 
-function normalizeSearchText(value) {
-  return (value || "")
-    .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+function renderVenueOptions(matrix) {
+  const selected = venueSelect.value || "all";
+  const options = [`<option value="all" data-i18n-option="allTents">${t("allTents")}</option>`]
+    .concat(
+      matrix.tents.map((tent) => `<option value="${tent.slug}">${tent.name}</option>`)
+    )
+    .join("");
+
+  venueSelect.innerHTML = options;
+  venueSelect.value = matrix.tents.some((tent) => tent.slug === selected) ? selected : "all";
 }
 
 function filteredTents(matrix) {
-  const filter = normalizeSearchText(venueFilterInput.value || "");
-  if (!filter) return matrix.tents;
-
-  return matrix.tents.filter((tent) => {
-    const byName = normalizeSearchText(tent.name).includes(filter);
-    const bySlug = normalizeSearchText(tent.slug).includes(filter);
-    return byName || bySlug;
-  });
+  const selected = venueSelect.value || "all";
+  if (selected === "all") {
+    return matrix.tents;
+  }
+  return matrix.tents.filter((tent) => tent.slug === selected);
 }
 
 function renderMatrix() {
   if (!latestMatrix) return;
 
+  renderVenueOptions(latestMatrix);
   const tents = filteredTents(latestMatrix);
   tableWrap.innerHTML = `${buildMatrixTable(latestMatrix, tents)}${buildVenueSummary(tents)}`;
   output.textContent = `${t("loaded")}: ${tents.length}/${latestMatrix.tents.length} tents, timeslot=${latestMatrix.timeslot}`;
@@ -272,7 +267,7 @@ async function loadMatrix() {
 
 refreshButton.addEventListener("click", loadMatrix);
 timeslotSelect.addEventListener("change", loadMatrix);
-venueFilterInput.addEventListener("input", renderMatrix);
+venueSelect.addEventListener("change", renderMatrix);
 langEnButton.addEventListener("click", () => applyLanguage("en"));
 langDeButton.addEventListener("click", () => applyLanguage("de"));
 
