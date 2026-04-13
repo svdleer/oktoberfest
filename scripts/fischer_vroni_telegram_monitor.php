@@ -311,6 +311,27 @@ function fetchUrl(string $url): ?string
         usleep($attempt * 200000);
     }
 
+    // Fallback for hosts that are sensitive to PHP stream wrappers.
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_USERAGENT => 'OktoberfestMonitor/1.0',
+            CURLOPT_HTTPHEADER => ['Accept: text/html,*/*'],
+        ]);
+
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        if (is_string($body) && $body !== '' && $httpCode >= 200 && $httpCode < 400) {
+            return $body;
+        }
+    }
+
     return null;
 }
 
