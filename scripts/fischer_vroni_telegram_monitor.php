@@ -10,8 +10,6 @@ declare(strict_types=1);
  *   php scripts/fischer_vroni_telegram_monitor.php --force
  */
 
-const BASE_SHOP_URL = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=';
-const EMPTY_MARKER = 'Es wurden keine Produkte gefunden';
 const FISCHER_VRONI_OFFICIAL_DEFAULT_URL = 'https://reservierung.fischer-vroni.de/reservation';
 const FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER = 'Aktuell gibt es keine Verfügbarkeiten.';
 const DEFAULT_OFFICIAL_TENT_URL_MAP = [
@@ -82,15 +80,19 @@ $changeCount = 0;
 foreach (TENTS as $tent) {
     $tentName = (string) $tent['name'];
     $slug = (string) $tent['slug'];
-    $checkUrl = BASE_SHOP_URL . rawurlencode($slug);
 
-    $html = fetchUrl($checkUrl);
-    if ($html === null) {
-        fwrite(STDERR, "Failed to fetch target URL: {$checkUrl}\n");
+    $officialUrl = $officialTentUrlMap[$slug] ?? null;
+    if (!is_string($officialUrl) || $officialUrl === '') {
+        fwrite(STDERR, "No official URL configured for tent: {$slug}\n");
         continue;
     }
 
-    $marketIsAvailable = detectAvailability($html, $slug);
+    $officialHtml = fetchUrl($officialUrl);
+    if ($officialHtml === null) {
+        fwrite(STDERR, "Failed to fetch official URL: {$officialUrl}\n");
+        continue;
+    }
+
     $officialSignal = null;
     $officialFingerprintHash = null;
     $officialFingerprintSignal = null;
@@ -100,38 +102,34 @@ foreach (TENTS as $tent) {
     $activationChanged = false;
     $previousActivationDetected = false;
 
-    $officialUrl = $officialTentUrlMap[$slug] ?? null;
-    if (is_string($officialUrl) && $officialUrl !== '') {
-        $officialHtml = fetchUrl($officialUrl);
-        if ($officialHtml !== null) {
-            if ($slug === 'fischer-vroni') {
-                $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
-                $activationDetected = detectFischerVroniActivationSignal($officialHtml);
-                $previousActivationDetected = (bool) ($state['tents'][$slug]['activationDetected'] ?? false);
-                $activationChanged = $fischerVroniActivationAlertEnabled && ($activationDetected !== $previousActivationDetected);
-                $fingerprint = buildFischerVroniFingerprint($officialHtml);
-                $officialFingerprintHash = $fingerprint['hash'];
-                $officialFingerprintSignal = $fingerprint['signal'];
-                $previousFingerprint = $state['tents'][$slug]['officialFingerprintHash'] ?? null;
-                $formatChanged = $fischerVroniFormatAlertEnabled
-                    && $previousFingerprint !== null
-                    && $officialFingerprintHash !== null
-                    && $previousFingerprint !== $officialFingerprintHash;
-            } else {
-                $officialSignal = detectGenericOfficialAvailability($officialHtml);
-            }
-        }
+    if ($slug === 'fischer-vroni') {
+        $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
+        $activationDetected = detectFischerVroniActivationSignal($officialHtml);
+        $previousActivationDetected = (bool) ($state['tents'][$slug]['activationDetected'] ?? false);
+        $activationChanged = $fischerVroniActivationAlertEnabled && ($activationDetected !== $previousActivationDetected);
+        $fingerprint = buildFischerVroniFingerprint($officialHtml);
+        $officialFingerprintHash = $fingerprint['hash'];
+        $officialFingerprintSignal = $fingerprint['signal'];
+        $previousFingerprint = $state['tents'][$slug]['officialFingerprintHash'] ?? null;
+        $formatChanged = $fischerVroniFormatAlertEnabled
+            && $previousFingerprint !== null
+            && $officialFingerprintHash !== null
+            && $previousFingerprint !== $officialFingerprintHash;
+    } else {
+        $officialSignal = detectGenericOfficialAvailability($officialHtml);
     }
 
-    $isAvailable = $officialSignal !== null ? $officialSignal : $marketIsAvailable;
     $previous = $state['tents'][$slug]['isAvailable'] ?? null;
+    $isAvailable = $officialSignal !== null
+        ? $officialSignal
+        : (($previous !== null) ? (bool) $previous : false);
     $changed = ($previous === null) || ((bool) $previous !== $isAvailable);
 
     $state['tents'][$slug] = [
         'name' => $tentName,
         'isAvailable' => $isAvailable,
         'checkedAt' => date(DATE_ATOM),
-        'lastCheckUrl' => $checkUrl,
+        'lastCheckUrl' => $officialUrl,
         'officialFingerprintHash' => $officialFingerprintHash,
         'officialFingerprintSignal' => $officialFingerprintSignal,
         'activationDetected' => $activationDetected,
@@ -149,9 +147,7 @@ foreach (TENTS as $tent) {
         ? 'Initial status check'
         : (($isAvailable ? 'Status changed: AVAILABLE' : 'Status changed: NOT AVAILABLE'));
 
-    $signalSource = $officialSignal !== null
-        ? ('official_portal:' . ($officialUrl ?? 'unknown'))
-        : 'marketplace_fallback';
+    $signalSource = 'official_portal:' . $officialUrl;
 
     $message = implode("\n", [
         'Oktoberfest Monitor',
@@ -160,7 +156,7 @@ foreach (TENTS as $tent) {
         'Current: ' . $statusText,
         'Signal source: ' . $signalSource,
         'Time: ' . date('Y-m-d H:i:s'),
-        'URL: ' . $checkUrl,
+        'URL: ' . $officialUrl,
     ]);
 
     if ($officialSignal !== null && is_string($officialUrl) && $officialUrl !== '') {
@@ -311,15 +307,6 @@ function fetchUrl(string $url): ?string
     }
 
     return $content;
-}
-
-function detectAvailability(string $html, string $slug): bool
-{
-    if (stripos($html, EMPTY_MARKER) !== false) {
-        return false;
-    }
-
-    return stripos($html, '/shop/' . $slug . '-') !== false || stripos($html, 'Preisspanne:') !== false;
 }
 
 function detectFischerVroniOfficialAvailability(string $html): ?bool

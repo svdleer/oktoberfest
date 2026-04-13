@@ -18,6 +18,17 @@ $dates = [
     '03.10.2026 (Sa)',
 ];
 
+$officialReservationUrlMap = [
+    'fischer-vroni' => 'https://reservierung.fischer-vroni.de/reservation',
+    'hofbraeu-festzelt' => 'https://reservierung.hb-festzelt.de/reservierung',
+    'festhalle-pschorr-braeurosl' => 'https://reservierung.braeurosl.de/',
+    'hacker-festzelt' => 'https://reservierung.derhimmelderbayern.de/',
+    'kaefers-wiesn-schaenke' => 'https://wiesnresmittag.kaefer-wiesn.de/',
+    'marstall-festzelt' => 'https://reservierung.marstall-oktoberfest.de/',
+    'paulaner-festzelt' => 'https://reservierung.paulanerfestzelt.de/',
+    'schuetzen-festzelt' => 'https://schuetzen-festzelt.de/de/reservierung.html',
+];
+
 // Data is derived from the currently observed shop availability checks.
 $venues = [
     [
@@ -213,13 +224,9 @@ foreach ($venues as $venue) {
         }
 
         $slotLinks = [];
+        $officialReservationUrl = $officialReservationUrlMap[(string) $venue['slug']] ?? '#';
         foreach (['mittag', 'abend'] as $slotName) {
-            $slotLinks[$slotName] = sprintf(
-                'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=%s&pa_wochentag=%s&pa_tageszeit=%s',
-                rawurlencode((string) $venue['slug']),
-                rawurlencode((string) ($weekdayByDate[$date] ?? 'samstag')),
-                rawurlencode($slotName)
-            );
+            $slotLinks[$slotName] = $officialReservationUrl;
         }
 
         $matrix[$date] = [
@@ -235,7 +242,7 @@ foreach ($venues as $venue) {
     $tents[] = [
         'name' => $venue['name'],
         'slug' => $venue['slug'],
-        'reservationUrl' => 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=' . rawurlencode((string) $venue['slug']),
+        'reservationUrl' => $officialReservationUrlMap[(string) $venue['slug']] ?? '#',
         'imageUrl' => resolveTentImageUrl((string) $venue['slug'], $imageCache),
         'ticketTypes' => $venue['ticketTypes'],
         'sales' => $venue['sales'],
@@ -318,8 +325,6 @@ function resolveTentImageSourceUrls(string $slug): array
     if (isset($mainDomains[$slug])) {
         $sources[] = $mainDomains[$slug];
     }
-
-    $sources[] = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=' . rawurlencode($slug);
 
     return $sources;
 }

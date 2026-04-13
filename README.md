@@ -53,7 +53,6 @@ Edit `.env.telegram`:
 - Optional `TELEGRAM_MESSAGE_THREAD_ID` (for forum topics)
 - Optional `TELEGRAM_TARGET_TOPIC_MAP` for per-target topic routing
 - Optional `TELEGRAM_TENT_TOPIC_MAP` for per-tent topic routing
-- Optional `CHECK_URL`
 - Optional `FISCHER_VRONI_OFFICIAL_URL`
 - Optional `OFFICIAL_TENT_URL_MAP` (`slug:url,slug:url`)
 - Optional `FISCHER_VRONI_FORMAT_ALERT` (`true`/`false`)
@@ -145,9 +144,9 @@ Behavior:
 
 - Sends Telegram message when status changes (per tent)
 - Stores last known status in `storage/oktoberfest_tent_monitor_state.json`
-- For `fischer-vroni`, the monitor uses the official page signal (`reservierung.fischer-vroni.de/reservation`) as primary source and falls back to marketplace parsing if needed.
-- For supported tents, official reservation portals can be used via `OFFICIAL_TENT_URL_MAP` with fallback to marketplace.
+- Monitor checks official reservation portals (no secondary market fallback).
+- For supported tents, official reservation portals are configured via `OFFICIAL_TENT_URL_MAP`.
 - For `fischer-vroni`, the monitor also tracks a normalized page signal checksum and can alert if the official page format/signal changes.
 - If `FISCHER_VRONI_FORMAT_TOPIC_ID` is set, those format-change alerts are posted to that separate topic.
 - For `fischer-vroni`, the monitor detects public booking activation hints from the Livewire snapshot (non-null booking/date/seat fields) and can alert to a separate topic.
-- Tent pictures now prefer each tent main domain and fall back to secondary market pages.
+- Tent pictures are sourced from each tent main domain.
