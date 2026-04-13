@@ -52,6 +52,7 @@ $tentTopicMap = resolveTentTopicMap($env);
 $fischerVroniOfficialUrl = getenv('FISCHER_VRONI_OFFICIAL_URL') ?: ($env['FISCHER_VRONI_OFFICIAL_URL'] ?? FISCHER_VRONI_OFFICIAL_DEFAULT_URL);
 $officialTentUrlMap = resolveOfficialTentUrlMap($env);
 $officialTentUrlMap['fischer-vroni'] = $fischerVroniOfficialUrl;
+$officialTentCookieMap = resolveOfficialTentCookieMap($env);
 $fischerVroniFormatAlertEnabled = envBool(
     getenv('FISCHER_VRONI_FORMAT_ALERT') ?: ($env['FISCHER_VRONI_FORMAT_ALERT'] ?? 'true'),
     true
@@ -87,7 +88,8 @@ foreach (TENTS as $tent) {
         continue;
     }
 
-    $officialHtml = fetchUrl($officialUrl);
+    $officialCookie = $officialTentCookieMap[$slug] ?? null;
+    $officialHtml = fetchUrl($officialUrl, $officialCookie);
     if ($officialHtml === null) {
         fwrite(STDERR, "Failed to fetch official URL: {$officialUrl}\n");
         continue;
@@ -289,13 +291,18 @@ function loadEnvFile(string $path): array
     return $data;
 }
 
-function fetchUrl(string $url): ?string
+function fetchUrl(string $url, ?string $cookieHeader = null): ?string
 {
+    $headers = "User-Agent: OktoberfestMonitor/1.0\r\nAccept: text/html,*/*\r\n";
+    if (is_string($cookieHeader) && trim($cookieHeader) !== '') {
+        $headers .= 'Cookie: ' . trim($cookieHeader) . "\r\n";
+    }
+
     $opts = [
         'http' => [
             'method' => 'GET',
             'timeout' => 20,
-            'header' => "User-Agent: OktoberfestMonitor/1.0\r\nAccept: text/html,*/*\r\n",
+            'header' => $headers,
         ],
     ];
 
@@ -322,6 +329,9 @@ function fetchUrl(string $url): ?string
             CURLOPT_USERAGENT => 'OktoberfestMonitor/1.0',
             CURLOPT_HTTPHEADER => ['Accept: text/html,*/*'],
         ]);
+        if (is_string($cookieHeader) && trim($cookieHeader) !== '') {
+            curl_setopt($ch, CURLOPT_COOKIE, trim($cookieHeader));
+        }
 
         $body = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -582,6 +592,36 @@ function resolveOfficialTentUrlMap(array $env): array
         }
 
         $map[$slug] = $url;
+    }
+
+    return $map;
+}
+
+function resolveOfficialTentCookieMap(array $env): array
+{
+    $raw = getenv('OFFICIAL_TENT_COOKIE_MAP') ?: ($env['OFFICIAL_TENT_COOKIE_MAP'] ?? '');
+    if ($raw === '') {
+        return [];
+    }
+
+    $entries = array_values(array_filter(array_map('trim', explode('|', $raw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    $map = [];
+    foreach ($entries as $entry) {
+        $parts = explode('=', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $slug = trim($parts[0]);
+        $cookie = trim($parts[1]);
+        if ($slug === '' || $cookie === '') {
+            continue;
+        }
+
+        $map[$slug] = $cookie;
     }
 
     return $map;

@@ -55,6 +55,7 @@ Edit `.env.telegram`:
 - Optional `TELEGRAM_TENT_TOPIC_MAP` for per-tent topic routing
 - Optional `FISCHER_VRONI_OFFICIAL_URL`
 - Optional `OFFICIAL_TENT_URL_MAP` (`slug:url,slug:url`)
+- Optional `OFFICIAL_TENT_COOKIE_MAP` (`slug=cookie_header|slug=cookie_header`)
 - Optional `FISCHER_VRONI_FORMAT_ALERT` (`true`/`false`)
 - Optional `FISCHER_VRONI_FORMAT_TOPIC_ID`
 - Optional `FISCHER_VRONI_ACTIVATION_ALERT` (`true`/`false`)
