@@ -3,8 +3,101 @@ const refreshButton = document.getElementById("refreshButton");
 const timeslotSelect = document.getElementById("timeslot");
 const tableWrap = document.getElementById("tableWrap");
 const venueFilterInput = document.getElementById("venueFilter");
+const langEnButton = document.getElementById("langEn");
+const langDeButton = document.getElementById("langDe");
 
 let latestMatrix = null;
+let currentLang = "en";
+
+const I18N = {
+  en: {
+    title: "Oktoberfest Reservation Matrix",
+    subtitle: "Live status grid by tent, date, and timeslot",
+    timeslotLabel: "Timeslot",
+    refresh: "Refresh",
+    legendGreen: "Green = Available",
+    legendRed: "Red = No products",
+    legendGray: "Unavail = Not offered",
+    filterPlaceholder: "Filter venue...",
+    filterAria: "Filter venue",
+    matrixTitle: "Reservation Matrix",
+    matrixTent: "Tent",
+    venueTitle: "Ticket Types Per Venue",
+    venue: "Venue",
+    guestGroups: "Guest Groups",
+    tableSizes: "Table Sizes",
+    timeslots: "Timeslots",
+    ticketSales: "Ticket Sales",
+    salesNote: "Sales Note",
+    open: "Open",
+    closed: "Closed",
+    loaded: "Loaded",
+    loading: "Loading matrix...",
+    requestFailed: "Request failed",
+    matrixUnavailable: "Could not load matrix.",
+    all: "All",
+    mittag: "Mittag",
+    abend: "Abend",
+  },
+  de: {
+    title: "Oktoberfest Reservierungs-Matrix",
+    subtitle: "Live-Status nach Zelt, Datum und Zeitslot",
+    timeslotLabel: "Zeitslot",
+    refresh: "Aktualisieren",
+    legendGreen: "Gruen = Verfuegbar",
+    legendRed: "Rot = Keine Produkte",
+    legendGray: "Unavail = Nicht angeboten",
+    filterPlaceholder: "Zelt filtern...",
+    filterAria: "Zelt filtern",
+    matrixTitle: "Reservierungs-Matrix",
+    matrixTent: "Zelt",
+    venueTitle: "Ticketarten pro Zelt",
+    venue: "Zelt",
+    guestGroups: "Gaestegruppen",
+    tableSizes: "Tischgroessen",
+    timeslots: "Zeitslots",
+    ticketSales: "Ticketverkauf",
+    salesNote: "Hinweis",
+    open: "Offen",
+    closed: "Geschlossen",
+    loaded: "Geladen",
+    loading: "Matrix wird geladen...",
+    requestFailed: "Anfrage fehlgeschlagen",
+    matrixUnavailable: "Matrix konnte nicht geladen werden.",
+    all: "Alle",
+    mittag: "Mittag",
+    abend: "Abend",
+  },
+};
+
+function t(key) {
+  return I18N[currentLang][key] || key;
+}
+
+function applyLanguage(lang) {
+  currentLang = lang;
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    el.textContent = t(key);
+  });
+
+  venueFilterInput.placeholder = t("filterPlaceholder");
+  venueFilterInput.setAttribute("aria-label", t("filterAria"));
+
+  document.querySelectorAll("[data-i18n-option]").forEach((option) => {
+    const key = option.getAttribute("data-i18n-option");
+    option.textContent = t(key);
+  });
+
+  langEnButton.classList.toggle("active", lang === "en");
+  langDeButton.classList.toggle("active", lang === "de");
+
+  if (latestMatrix) {
+    renderMatrix();
+  }
+}
 
 function statusBadgeClass(status) {
   if (status === "green") return "text-bg-success";
@@ -65,12 +158,12 @@ function buildMatrixTable(matrix, tents) {
     .join("");
 
   return `
-    <h2 class="h4 mt-2 mb-3">Reservation Matrix</h2>
+    <h2 class="h4 mt-2 mb-3">${t("matrixTitle")}</h2>
     <div class="table-responsive mb-4">
     <table class="table table-bordered table-striped align-middle matrix-table">
       <thead class="table-light">
         <tr>
-          <th>Tent</th>
+          <th>${t("matrixTent")}</th>
           ${headerCells}
         </tr>
       </thead>
@@ -88,7 +181,7 @@ function buildVenueSummary(tents) {
       const guestGroups = (tent.ticketTypes?.guestGroups || []).join(", ");
       const tableSizes = (tent.ticketTypes?.tableSizes || []).join(", ");
       const timeslots = (tent.ticketTypes?.timeslots || []).join(", ");
-      const sales = tent.sales?.open ? "Open" : "Closed";
+      const sales = tent.sales?.open ? t("open") : t("closed");
       const salesNote = tent.sales?.note || "";
 
       return `
@@ -105,17 +198,17 @@ function buildVenueSummary(tents) {
     .join("");
 
   return `
-    <h2 class="h4 mt-2 mb-3">Ticket Types Per Venue</h2>
+    <h2 class="h4 mt-2 mb-3">${t("venueTitle")}</h2>
     <div class="table-responsive">
     <table class="table table-bordered table-hover align-middle">
       <thead class="table-light">
         <tr>
-          <th>Venue</th>
-          <th>Guest Groups</th>
-          <th>Table Sizes</th>
-          <th>Timeslots</th>
-          <th>Ticket Sales</th>
-          <th>Sales Note</th>
+          <th>${t("venue")}</th>
+          <th>${t("guestGroups")}</th>
+          <th>${t("tableSizes")}</th>
+          <th>${t("timeslots")}</th>
+          <th>${t("ticketSales")}</th>
+          <th>${t("salesNote")}</th>
         </tr>
       </thead>
       <tbody>
@@ -137,12 +230,12 @@ function renderMatrix() {
 
   const tents = filteredTents(latestMatrix);
   tableWrap.innerHTML = `${buildMatrixTable(latestMatrix, tents)}${buildVenueSummary(tents)}`;
-  output.textContent = `Loaded: ${tents.length}/${latestMatrix.tents.length} tents, timeslot=${latestMatrix.timeslot}`;
+  output.textContent = `${t("loaded")}: ${tents.length}/${latestMatrix.tents.length} tents, timeslot=${latestMatrix.timeslot}`;
 }
 
 async function loadMatrix() {
   const timeslot = timeslotSelect.value;
-  output.textContent = "Loading matrix...";
+  output.textContent = t("loading");
 
   try {
     const response = await fetch(`/api/matrix/?timeslot=${encodeURIComponent(timeslot)}`);
@@ -154,13 +247,16 @@ async function loadMatrix() {
     latestMatrix = await response.json();
     renderMatrix();
   } catch (error) {
-    output.textContent = `Request failed: ${error.message}`;
-    tableWrap.textContent = "Could not load matrix.";
+    output.textContent = `${t("requestFailed")}: ${error.message}`;
+    tableWrap.textContent = t("matrixUnavailable");
   }
 }
 
 refreshButton.addEventListener("click", loadMatrix);
 timeslotSelect.addEventListener("change", loadMatrix);
 venueFilterInput.addEventListener("input", renderMatrix);
+langEnButton.addEventListener("click", () => applyLanguage("en"));
+langDeButton.addEventListener("click", () => applyLanguage("de"));
 
+applyLanguage("en");
 loadMatrix();

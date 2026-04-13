@@ -20,6 +20,10 @@ body {
   min-width: 160px;
 }
 
+.lang-switch .btn {
+  min-width: 52px;
+}
+
 .small-status {
   border: 1px solid #9aa8b4;
   border-radius: 0.5rem;

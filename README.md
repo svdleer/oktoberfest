@@ -113,6 +113,8 @@ Users can message the bot:
 
 - `/status` for last known status from storage
 - `/status live` for a live fetch from public sources
+- `/statusde` for last known status in German
+- `/statusde live` for a live fetch in German
 
 Run listener periodically (e.g., every minute):
 

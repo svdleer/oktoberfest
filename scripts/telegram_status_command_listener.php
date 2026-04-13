@@ -6,8 +6,10 @@ declare(strict_types=1);
  * Telegram command listener for live status checks.
  *
  * Commands:
- *   /status       -> last known state from storage
- *   /status live  -> fetch current live state from public sources
+ *   /status         -> last known state from storage (EN)
+ *   /status live    -> fetch current live state from public sources (EN)
+ *   /statusde       -> letzter gespeicherter Status (DE)
+ *   /statusde live  -> Live-Abruf aus oeffentlichen Quellen (DE)
  *
  * Run periodically (e.g., every minute via cron):
  *   php scripts/telegram_status_command_listener.php
@@ -93,10 +95,13 @@ foreach ($items as $update) {
     }
 
     $normalized = strtolower($text);
-    $isStatus = str_starts_with($normalized, '/status');
-    if (!$isStatus) {
+    $isStatusEn = str_starts_with($normalized, '/status');
+    $isStatusDe = str_starts_with($normalized, '/statusde');
+    if (!$isStatusEn && !$isStatusDe) {
         continue;
     }
+
+    $lang = $isStatusDe ? 'de' : 'en';
 
     $chatId = (string) ($msg['chat']['id'] ?? '');
     if ($chatId === '') {
@@ -110,15 +115,23 @@ foreach ($items as $update) {
         ? getLiveStatuses($fischerVroniOfficialUrl)
         : getStoredStatuses($stateFile);
 
-    $header = $live ? 'Oktoberfest Status (live)' : 'Oktoberfest Status (last known)';
-    $lines = [$header, 'Time: ' . date('Y-m-d H:i:s')];
+    $header = $lang === 'de'
+        ? ($live ? 'Oktoberfest Status (live)' : 'Oktoberfest Status (letzter Stand)')
+        : ($live ? 'Oktoberfest Status (live)' : 'Oktoberfest Status (last known)');
+    $timeLabel = $lang === 'de' ? 'Zeit' : 'Time';
+    $availLabel = $lang === 'de' ? 'VERFUEGBAR' : 'AVAILABLE';
+    $notAvailLabel = $lang === 'de' ? 'NICHT VERFUEGBAR' : 'NOT AVAILABLE';
+    $tipLabel = $lang === 'de' ? 'Tipp' : 'Tip';
+    $tipCommand = $lang === 'de' ? '/statusde live' : '/status live';
+
+    $lines = [$header, $timeLabel . ': ' . date('Y-m-d H:i:s')];
 
     foreach ($statusRows as $row) {
-        $lines[] = '- ' . $row['name'] . ': ' . ($row['available'] ? 'AVAILABLE' : 'NOT AVAILABLE');
+        $lines[] = '- ' . $row['name'] . ': ' . ($row['available'] ? $availLabel : $notAvailLabel);
     }
 
     $lines[] = '';
-    $lines[] = 'Tip: /status live';
+    $lines[] = $tipLabel . ': ' . $tipCommand;
 
     $sent = telegramApi($token, 'sendMessage', [
         'chat_id' => $chatId,
