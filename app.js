@@ -36,8 +36,8 @@ const I18N = {
     requestFailed: "Request failed",
     matrixUnavailable: "Could not load matrix.",
     all: "All",
-    mittag: "Mittag",
-    abend: "Abend",
+    mittag: "Lunch",
+    abend: "Evening",
   },
   de: {
     title: "Oktoberfest Reservierungs-Matrix",
@@ -77,6 +77,7 @@ function t(key) {
 function applyLanguage(lang) {
   currentLang = lang;
   document.documentElement.lang = lang;
+  localStorage.setItem("oktoberfest-lang", lang);
 
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
@@ -112,7 +113,7 @@ function renderTimeslotBadges(cell) {
       const slotStatus = cell.slotStatus?.[slot] || "unavail";
       const slotUrl = cell.slotLinks?.[slot] || "#";
       const badge = `slot-link slot-badge badge ${statusBadgeClass(slotStatus)}`;
-      const label = `${slot}`;
+      const label = t(slot);
 
       if (slotStatus === "unavail") {
         return "";
@@ -258,5 +259,6 @@ venueFilterInput.addEventListener("input", renderMatrix);
 langEnButton.addEventListener("click", () => applyLanguage("en"));
 langDeButton.addEventListener("click", () => applyLanguage("de"));
 
-applyLanguage("en");
+const preferredLang = localStorage.getItem("oktoberfest-lang");
+applyLanguage(preferredLang === "de" ? "de" : "en");
 loadMatrix();

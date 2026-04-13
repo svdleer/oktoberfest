@@ -16,31 +16,32 @@
         <div class="col-12 col-xxl-11">
           <div class="card shadow-sm border-0 mb-4">
             <div class="card-body p-4 p-lg-5">
-              <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-                <div>
+              <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div class="pe-2">
                   <h1 class="h2 mb-1" data-i18n="title">Oktoberfest Reservation Matrix</h1>
                   <p class="text-muted mb-0" data-i18n="subtitle">Live status grid by tent, date, and timeslot</p>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                  <div class="btn-group lang-switch" role="group" aria-label="Language switch">
-                    <button id="langEn" class="btn btn-outline-secondary active" type="button">EN</button>
-                    <button id="langDe" class="btn btn-outline-secondary" type="button">DE</button>
-                  </div>
-                  <label for="timeslot" class="form-label mb-0 fw-semibold" data-i18n="timeslotLabel">Timeslot</label>
-                  <select id="timeslot" class="form-select">
-                    <option value="all" data-i18n-option="all">All</option>
-                    <option value="mittag" data-i18n-option="mittag">Mittag</option>
-                    <option value="abend" data-i18n-option="abend">Abend</option>
-                  </select>
-                  <input
-                    id="venueFilter"
-                    class="form-control"
-                    type="search"
-                    placeholder="Filter venue..."
-                    aria-label="Filter venue"
-                  />
-                  <button id="refreshButton" class="btn btn-primary" data-i18n="refresh">Refresh</button>
+                <div class="btn-group lang-switch" role="group" aria-label="Language switch">
+                  <button id="langEn" class="btn btn-outline-secondary active" type="button">EN</button>
+                  <button id="langDe" class="btn btn-outline-secondary" type="button">DE</button>
                 </div>
+              </div>
+
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+                <label for="timeslot" class="form-label mb-0 fw-semibold" data-i18n="timeslotLabel">Timeslot</label>
+                <select id="timeslot" class="form-select">
+                  <option value="all" data-i18n-option="all">All</option>
+                  <option value="mittag" data-i18n-option="mittag">Mittag</option>
+                  <option value="abend" data-i18n-option="abend">Abend</option>
+                </select>
+                <input
+                  id="venueFilter"
+                  class="form-control"
+                  type="search"
+                  placeholder="Filter venue..."
+                  aria-label="Filter venue"
+                />
+                <button id="refreshButton" class="btn btn-primary" data-i18n="refresh">Refresh</button>
               </div>
 
               <div class="d-flex flex-wrap gap-2 mb-3">

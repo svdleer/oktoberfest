@@ -24,6 +24,12 @@ body {
   min-width: 52px;
 }
 
+.lang-switch .btn.active {
+  background-color: #1f2933;
+  border-color: #1f2933;
+  color: #ffffff;
+}
+
 .small-status {
   border: 1px solid #9aa8b4;
   border-radius: 0.5rem;
@@ -123,5 +129,9 @@ span.slot-badge {
   .matrix-table th,
   .matrix-table td {
     min-width: 130px;
+  }
+
+  .lang-switch {
+    align-self: flex-start;
   }
 }
