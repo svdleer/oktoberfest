@@ -56,6 +56,7 @@ Edit `.env.telegram`:
 - Optional `FISCHER_VRONI_OFFICIAL_URL`
 - Optional `OFFICIAL_TENT_URL_MAP` (`slug:url,slug:url`)
 - Optional `OFFICIAL_TENT_COOKIE_MAP` (`slug=cookie_header|slug=cookie_header`)
+- Optional `TENT_IMAGE_URL_MAP` (`slug=image_url|slug=image_url`)
 - Optional `FISCHER_VRONI_FORMAT_ALERT` (`true`/`false`)
 - Optional `FISCHER_VRONI_FORMAT_TOPIC_ID`
 - Optional `FISCHER_VRONI_ACTIVATION_ALERT` (`true`/`false`)
@@ -151,3 +152,4 @@ Behavior:
 - If `FISCHER_VRONI_FORMAT_TOPIC_ID` is set, those format-change alerts are posted to that separate topic.
 - For `fischer-vroni`, the monitor detects public booking activation hints from the Livewire snapshot (non-null booking/date/seat fields) and can alert to a separate topic.
 - Tent pictures are sourced from each tent main domain.
+- Tent pictures can be overridden per venue via `TENT_IMAGE_URL_MAP` (Fischer-Vroni has a fixed header image default).

@@ -29,6 +29,12 @@ $officialReservationUrlMap = [
     'schuetzen-festzelt' => 'https://schuetzen-festzelt.de/de/reservierung.html',
 ];
 
+$defaultTentImageUrlMap = [
+    'fischer-vroni' => 'https://fzos-core-production-public.fsn1.your-objectstorage.com/portal-header-images/01KH1RKHYC3KQXWHVT91HBDCB2.jpg',
+];
+$envTentImageUrlMap = resolveTentImageUrlMapFromEnv();
+$tentImageUrlMap = array_merge($defaultTentImageUrlMap, $envTentImageUrlMap);
+
 // Data is derived from the currently observed shop availability checks.
 $venues = [
     [
@@ -243,7 +249,7 @@ foreach ($venues as $venue) {
         'name' => $venue['name'],
         'slug' => $venue['slug'],
         'reservationUrl' => $officialReservationUrlMap[(string) $venue['slug']] ?? '#',
-        'imageUrl' => resolveTentImageUrl((string) $venue['slug'], $imageCache),
+        'imageUrl' => $tentImageUrlMap[(string) $venue['slug']] ?? resolveTentImageUrl((string) $venue['slug'], $imageCache),
         'ticketTypes' => $venue['ticketTypes'],
         'sales' => $venue['sales'],
         'matrix' => $matrix,
@@ -327,6 +333,36 @@ function resolveTentImageSourceUrls(string $slug): array
     }
 
     return $sources;
+}
+
+function resolveTentImageUrlMapFromEnv(): array
+{
+    $raw = getenv('TENT_IMAGE_URL_MAP');
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+
+    $entries = array_values(array_filter(array_map('trim', explode('|', $raw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    $map = [];
+    foreach ($entries as $entry) {
+        $parts = explode('=', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $slug = trim($parts[0]);
+        $url = trim($parts[1]);
+        if ($slug === '' || $url === '') {
+            continue;
+        }
+
+        $map[$slug] = $url;
+    }
+
+    return $map;
 }
 
 function extractBestTentImageFromHtml(string $html): string
