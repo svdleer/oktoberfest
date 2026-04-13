@@ -8,6 +8,10 @@ const venueControl = venueSelect || venueFilterInput;
 const langEnButton = document.getElementById("langEn");
 const langDeButton = document.getElementById("langDe");
 
+if (!output || !tableWrap) {
+  throw new Error("Required UI elements are missing: output/tableWrap");
+}
+
 let latestMatrix = null;
 let currentLang = "en";
 
@@ -255,7 +259,7 @@ function renderMatrix() {
 }
 
 async function loadMatrix() {
-  const timeslot = timeslotSelect.value;
+  const timeslot = timeslotSelect ? timeslotSelect.value : "all";
   output.textContent = t("loading");
 
   try {
@@ -273,8 +277,12 @@ async function loadMatrix() {
   }
 }
 
-refreshButton.addEventListener("click", loadMatrix);
-timeslotSelect.addEventListener("change", loadMatrix);
+if (refreshButton) {
+  refreshButton.addEventListener("click", loadMatrix);
+}
+if (timeslotSelect) {
+  timeslotSelect.addEventListener("change", loadMatrix);
+}
 if (venueSelect) {
   venueSelect.addEventListener("change", renderMatrix);
 }
