@@ -383,6 +383,9 @@ function detectGenericOfficialAvailability(string $html): ?bool
         'derzeit keine',
         'momentan keine',
         'ausgebucht',
+        'is loading',
+        'coming soon',
+        'placeholder',
     ];
 
     foreach ($negativeMarkers as $marker) {
