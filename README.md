@@ -54,6 +54,7 @@ Edit `.env.telegram`:
 - Optional `TELEGRAM_TARGET_TOPIC_MAP` for per-target topic routing
 - Optional `TELEGRAM_TENT_TOPIC_MAP` for per-tent topic routing
 - Optional `CHECK_URL`
+- Optional `FISCHER_VRONI_OFFICIAL_URL`
 
 Channel requirements:
 
@@ -112,3 +113,4 @@ Behavior:
 
 - Sends Telegram message when status changes (per tent)
 - Stores last known status in `storage/oktoberfest_tent_monitor_state.json`
+- For `fischer-vroni`, the monitor uses the official page signal (`reservierung.fischer-vroni.de/reservation`) as primary source and falls back to marketplace parsing if needed.

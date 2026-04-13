@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 const BASE_SHOP_URL = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa_festzelt=';
 const EMPTY_MARKER = 'Es wurden keine Produkte gefunden';
+const FISCHER_VRONI_OFFICIAL_DEFAULT_URL = 'https://reservierung.fischer-vroni.de/reservation';
+const FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER = 'Aktuell gibt es keine Verfügbarkeiten.';
 
 const TENTS = [
     ['name' => 'Fischer-Vroni', 'slug' => 'fischer-vroni'],
@@ -39,6 +41,7 @@ $env = loadEnvFile($envFile);
 $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
 $targets = resolveTelegramTargets($env);
 $tentTopicMap = resolveTentTopicMap($env);
+$fischerVroniOfficialUrl = getenv('FISCHER_VRONI_OFFICIAL_URL') ?: ($env['FISCHER_VRONI_OFFICIAL_URL'] ?? FISCHER_VRONI_OFFICIAL_DEFAULT_URL);
 $force = in_array('--force', $argv, true);
 
 if ($botToken === '' || count($targets) === 0) {
@@ -63,7 +66,16 @@ foreach (TENTS as $tent) {
         continue;
     }
 
-    $isAvailable = detectAvailability($html, $slug);
+    $marketIsAvailable = detectAvailability($html, $slug);
+    $officialSignal = null;
+    if ($slug === 'fischer-vroni') {
+        $officialHtml = fetchUrl($fischerVroniOfficialUrl);
+        if ($officialHtml !== null) {
+            $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
+        }
+    }
+
+    $isAvailable = $officialSignal !== null ? $officialSignal : $marketIsAvailable;
     $previous = $state['tents'][$slug]['isAvailable'] ?? null;
     $changed = ($previous === null) || ((bool) $previous !== $isAvailable);
 
@@ -86,14 +98,21 @@ foreach (TENTS as $tent) {
         ? 'Initial status check'
         : (($isAvailable ? 'Status changed: AVAILABLE' : 'Status changed: NOT AVAILABLE'));
 
+    $signalSource = $officialSignal !== null ? 'official_fischer_vroni_portal' : 'marketplace_fallback';
+
     $message = implode("\n", [
         'Oktoberfest Monitor',
         'Tent: ' . $tentName,
         $changeText,
         'Current: ' . $statusText,
+        'Signal source: ' . $signalSource,
         'Time: ' . date('Y-m-d H:i:s'),
         'URL: ' . $checkUrl,
     ]);
+
+    if ($slug === 'fischer-vroni' && $officialSignal !== null) {
+        $message .= "\nOfficial URL: " . $fischerVroniOfficialUrl;
+    }
 
     foreach ($targets as $targetConfig) {
         $threadId = $tentTopicMap[$slug] ?? $targetConfig['thread_id'];
@@ -194,6 +213,24 @@ function detectAvailability(string $html, string $slug): bool
 
     // Basic positive signal for product listings.
     return stripos($html, '/shop/' . $slug . '-') !== false || stripos($html, 'Preisspanne:') !== false;
+}
+
+function detectFischerVroniOfficialAvailability(string $html): ?bool
+{
+    if (stripos($html, FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER) !== false) {
+        return false;
+    }
+
+    if (
+        stripos($html, 'Reservierungen') !== false &&
+        stripos($html, FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER) === false
+    ) {
+        // No explicit "no availability" marker present on official page.
+        return true;
+    }
+
+    // Unknown/changed page format -> let caller fallback to marketplace source.
+    return null;
 }
 
 function loadState(string $path): array
