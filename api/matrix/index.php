@@ -262,6 +262,7 @@ function resolveTentImageUrl(string $slug, array &$cache): string
         && isset($cached['url'], $cached['fetchedAt'])
         && is_string($cached['url'])
         && is_int($cached['fetchedAt'])
+        && !isGenericImageUrl($cached['url'])
         && ($now - $cached['fetchedAt']) < $ttlSeconds
     ) {
         return $cached['url'];
@@ -272,13 +273,11 @@ function resolveTentImageUrl(string $slug, array &$cache): string
 
     $imageUrl = '';
     if (is_string($html) && $html !== '') {
-        if (preg_match('/<meta\\s+property="og:image"\\s+content="([^"]+)"/i', $html, $m) === 1) {
-            $imageUrl = trim((string) $m[1]);
-        }
+        $imageUrl = extractBestTentImageFromHtml($html);
 
-        if ($imageUrl === '' && preg_match('/<img[^>]+src="([^"]+)"/i', $html, $m2) === 1) {
-            $candidate = trim((string) $m2[1]);
-            if (preg_match('/^https?:\\/\\//i', $candidate) === 1) {
+        if ($imageUrl === '' && preg_match('/<meta\\s+property="og:image"\\s+content="([^"]+)"/i', $html, $m) === 1) {
+            $candidate = trim((string) $m[1]);
+            if (!isGenericImageUrl($candidate)) {
                 $imageUrl = $candidate;
             }
         }
@@ -294,6 +293,42 @@ function resolveTentImageUrl(string $slug, array &$cache): string
     ];
 
     return $imageUrl;
+}
+
+function extractBestTentImageFromHtml(string $html): string
+{
+    if (preg_match_all('/https?:\\/\\/[^"\'\\s>]+\\.(?:jpg|jpeg|png|webp)/i', $html, $matches) < 1) {
+        return '';
+    }
+
+    foreach ($matches[0] as $url) {
+        $candidate = trim((string) $url);
+        if ($candidate === '' || isGenericImageUrl($candidate)) {
+            continue;
+        }
+        if (stripos($candidate, '/wp-content/uploads/') !== false) {
+            return $candidate;
+        }
+    }
+
+    foreach ($matches[0] as $url) {
+        $candidate = trim((string) $url);
+        if ($candidate !== '' && !isGenericImageUrl($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return '';
+}
+
+function isGenericImageUrl(string $url): bool
+{
+    $u = strtolower($url);
+    return str_contains($u, 'logo')
+        || str_contains($u, '/flags/')
+        || str_contains($u, '/plugins/')
+        || str_contains($u, 'sitepress-multilingual-cms')
+        || str_contains($u, 'woocommerce-products-filter');
 }
 
 function loadImageCache(string $path): array
