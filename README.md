@@ -64,9 +64,19 @@ php scripts/fischer_vroni_telegram_monitor.php --force
 
 If this succeeds, the script prints the exact target it sent to.
 
-Common error:
+### 2b. Telegram channel debug helper
 
-- `Forbidden: bot is not a member of the channel` -> add the bot to the channel and allow posting.
+If messages do not arrive, run:
+
+```bash
+php scripts/telegram_debug.php
+```
+
+This checks:
+
+- `getMe` (token validity)
+- `getChat` (bot access to target channel)
+- `sendMessage` (actual posting permission)
 
 ### 3. Run every 10 minutes via cron
 
