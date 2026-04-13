@@ -300,13 +300,18 @@ function fetchUrl(string $url): ?string
     ];
 
     $context = stream_context_create($opts);
-    $content = @file_get_contents($url, false, $context);
 
-    if ($content === false) {
-        return null;
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        $content = @file_get_contents($url, false, $context);
+        if ($content !== false && $content !== '') {
+            return $content;
+        }
+
+        // brief backoff for transient network/host issues
+        usleep($attempt * 200000);
     }
 
-    return $content;
+    return null;
 }
 
 function detectFischerVroniOfficialAvailability(string $html): ?bool
