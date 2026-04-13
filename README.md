@@ -107,6 +107,25 @@ php scripts/telegram_create_tent_topics.php
 
 This updates `TELEGRAM_TENT_TOPIC_MAP` automatically.
 
+### 2d. Bot command for live status
+
+Users can message the bot:
+
+- `/status` for last known status from storage
+- `/status live` for a live fetch from public sources
+
+Run listener periodically (e.g., every minute):
+
+```bash
+php scripts/telegram_status_command_listener.php
+```
+
+Example cron:
+
+```bash
+* * * * * cd /Users/silvester/PythonDev/Git/oktoberfest && /usr/bin/php scripts/telegram_status_command_listener.php >> storage/status-listener.log 2>&1
+```
+
 ### 3. Run every 10 minutes via cron
 
 ```bash
