@@ -48,6 +48,12 @@ $fischerVroniFormatAlertEnabled = envBool(
 );
 $fischerVroniFormatTopicRaw = getenv('FISCHER_VRONI_FORMAT_TOPIC_ID') ?: ($env['FISCHER_VRONI_FORMAT_TOPIC_ID'] ?? '');
 $fischerVroniFormatTopicId = ctype_digit((string) $fischerVroniFormatTopicRaw) ? (int) $fischerVroniFormatTopicRaw : null;
+$fischerVroniActivationAlertEnabled = envBool(
+    getenv('FISCHER_VRONI_ACTIVATION_ALERT') ?: ($env['FISCHER_VRONI_ACTIVATION_ALERT'] ?? 'true'),
+    true
+);
+$fischerVroniActivationTopicRaw = getenv('FISCHER_VRONI_ACTIVATION_TOPIC_ID') ?: ($env['FISCHER_VRONI_ACTIVATION_TOPIC_ID'] ?? '');
+$fischerVroniActivationTopicId = ctype_digit((string) $fischerVroniActivationTopicRaw) ? (int) $fischerVroniActivationTopicRaw : null;
 $force = in_array('--force', $argv, true);
 
 if ($botToken === '' || count($targets) === 0) {
@@ -78,11 +84,17 @@ foreach (TENTS as $tent) {
     $officialFingerprintSignal = null;
     $formatChanged = false;
     $previousFingerprint = null;
+    $activationDetected = false;
+    $activationChanged = false;
+    $previousActivationDetected = false;
 
     if ($slug === 'fischer-vroni') {
         $officialHtml = fetchUrl($fischerVroniOfficialUrl);
         if ($officialHtml !== null) {
             $officialSignal = detectFischerVroniOfficialAvailability($officialHtml);
+            $activationDetected = detectFischerVroniActivationSignal($officialHtml);
+            $previousActivationDetected = (bool) ($state['tents'][$slug]['activationDetected'] ?? false);
+            $activationChanged = $fischerVroniActivationAlertEnabled && ($activationDetected !== $previousActivationDetected);
             $fingerprint = buildFischerVroniFingerprint($officialHtml);
             $officialFingerprintHash = $fingerprint['hash'];
             $officialFingerprintSignal = $fingerprint['signal'];
@@ -105,12 +117,13 @@ foreach (TENTS as $tent) {
         'lastCheckUrl' => $checkUrl,
         'officialFingerprintHash' => $officialFingerprintHash,
         'officialFingerprintSignal' => $officialFingerprintSignal,
+        'activationDetected' => $activationDetected,
     ];
 
     $statusText = $isAvailable ? 'AVAILABLE' : 'NOT AVAILABLE';
     echo sprintf("[%s] %s: %s\n", date('Y-m-d H:i:s'), $tentName, $statusText);
 
-    if (!$force && !$changed && !$formatChanged) {
+    if (!$force && !$changed && !$formatChanged && !$activationChanged) {
         continue;
     }
 
@@ -174,6 +187,38 @@ foreach (TENTS as $tent) {
             }
 
             echo sprintf("Format-change alert sent to %s (%s).\n", $targetChatId, $slug);
+        }
+    }
+
+    if ($slug === 'fischer-vroni') {
+        $activationJustOpened = $activationChanged && $activationDetected && !$previousActivationDetected;
+        $shouldSendActivationSignal = $activationJustOpened || ($force && $activationDetected);
+
+        if ($shouldSendActivationSignal) {
+            $activationMessage = implode("\n", [
+                'Oktoberfest Monitor',
+                'Tent: Fischer-Vroni',
+                'Booking form activation detected',
+                'Signal source: official_fischer_vroni_portal',
+                'Time: ' . date('Y-m-d H:i:s'),
+                'Official URL: ' . $fischerVroniOfficialUrl,
+                'Hint: booking fields on public page are no longer empty.',
+            ]);
+
+            foreach ($targets as $targetConfig) {
+                $targetChatId = (string) $targetConfig['chat_id'];
+                $threadId = $fischerVroniActivationTopicId
+                    ?? $fischerVroniFormatTopicId
+                    ?? ($tentTopicMap[$slug] ?? $targetConfig['thread_id']);
+
+                $sent = sendTelegramMessage($botToken, $targetChatId, $activationMessage, $threadId);
+                if (!$sent) {
+                    $failedTargets[] = $targetChatId . ' [' . $slug . ':activation]';
+                    continue;
+                }
+
+                echo sprintf("Activation alert sent to %s (%s).\n", $targetChatId, $slug);
+            }
         }
     }
 }
@@ -272,6 +317,20 @@ function detectFischerVroniOfficialAvailability(string $html): ?bool
     }
 
     return null;
+}
+
+function detectFischerVroniActivationSignal(string $html): bool
+{
+    // If explicit "no availability" marker exists, booking is not active.
+    if (stripos($html, FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER) !== false) {
+        return false;
+    }
+
+    $hasBookingListId = preg_match('/booking_list_id&quot;:(?!null)\d+/i', $html) === 1;
+    $hasSeatplanArea = preg_match('/seatplan_area_id&quot;:(?!null)\d+/i', $html) === 1;
+    $hasDateValue = preg_match('/&quot;date&quot;:&quot;[^&]+&quot;/i', $html) === 1;
+
+    return $hasBookingListId || $hasSeatplanArea || $hasDateValue;
 }
 
 function buildFischerVroniFingerprint(string $html): array

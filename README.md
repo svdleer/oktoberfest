@@ -57,6 +57,8 @@ Edit `.env.telegram`:
 - Optional `FISCHER_VRONI_OFFICIAL_URL`
 - Optional `FISCHER_VRONI_FORMAT_ALERT` (`true`/`false`)
 - Optional `FISCHER_VRONI_FORMAT_TOPIC_ID`
+- Optional `FISCHER_VRONI_ACTIVATION_ALERT` (`true`/`false`)
+- Optional `FISCHER_VRONI_ACTIVATION_TOPIC_ID`
 
 Channel requirements:
 
@@ -118,3 +120,4 @@ Behavior:
 - For `fischer-vroni`, the monitor uses the official page signal (`reservierung.fischer-vroni.de/reservation`) as primary source and falls back to marketplace parsing if needed.
 - For `fischer-vroni`, the monitor also tracks a normalized page signal checksum and can alert if the official page format/signal changes.
 - If `FISCHER_VRONI_FORMAT_TOPIC_ID` is set, those format-change alerts are posted to that separate topic.
+- For `fischer-vroni`, the monitor detects public booking activation hints from the Livewire snapshot (non-null booking/date/seat fields) and can alert to a separate topic.
