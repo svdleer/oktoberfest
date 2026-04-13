@@ -46,8 +46,10 @@ Edit `.env.telegram`:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_TARGET` (recommended): `@channel_username` or `-100...` channel/group id
+- Optional `TELEGRAM_TARGETS` for multiple channels: comma separated
 - Optional `TELEGRAM_CHAT_ID` (legacy fallback)
 - Optional `TELEGRAM_MESSAGE_THREAD_ID` (for forum topics)
+- Optional `TELEGRAM_TARGET_TOPIC_MAP` for per-target topic routing
 - Optional `CHECK_URL`
 
 Channel requirements:
@@ -55,6 +57,13 @@ Channel requirements:
 - Add your bot to the target channel/group
 - Grant the bot permission to post messages
 - For private channels, use numeric `-100...` id if `@username` does not deliver
+
+Examples for sub-channel style routing:
+
+```env
+TELEGRAM_TARGETS=@oktoberfest_2026,@another_channel
+TELEGRAM_TARGET_TOPIC_MAP=@oktoberfest_2026:12,@another_channel:3
+```
 
 ### 2. Manual test
 

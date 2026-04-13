@@ -25,17 +25,12 @@ if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageD
 
 $env = loadEnvFile($envFile);
 $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
-$target = getenv('TELEGRAM_TARGET') ?: ($env['TELEGRAM_TARGET'] ?? '');
-if ($target === '') {
-    $target = getenv('TELEGRAM_CHAT_ID') ?: ($env['TELEGRAM_CHAT_ID'] ?? '');
-}
-$threadIdRaw = getenv('TELEGRAM_MESSAGE_THREAD_ID') ?: ($env['TELEGRAM_MESSAGE_THREAD_ID'] ?? '');
-$threadId = ctype_digit((string) $threadIdRaw) ? (int) $threadIdRaw : null;
+$targets = resolveTelegramTargets($env);
 $checkUrl = getenv('CHECK_URL') ?: ($env['CHECK_URL'] ?? DEFAULT_CHECK_URL);
 $force = in_array('--force', $argv, true);
 
-if ($botToken === '' || $target === '') {
-    fwrite(STDERR, "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_TARGET (or TELEGRAM_CHAT_ID fallback). Configure .env.telegram or environment variables.\n");
+if ($botToken === '' || count($targets) === 0) {
+    fwrite(STDERR, "Missing TELEGRAM_BOT_TOKEN or Telegram target config. Configure TELEGRAM_TARGET/TELEGRAM_TARGETS in .env.telegram.\n");
     exit(1);
 }
 
@@ -73,14 +68,27 @@ if ($force || $changed) {
         'URL: ' . $checkUrl,
     ]);
 
-    $sendResult = sendTelegramMessage($botToken, $target, $message, $threadId);
-    if (!($sendResult['ok'] ?? false)) {
-        $errorMessage = $sendResult['error'] ?? 'Unknown Telegram API error';
-        fwrite(STDERR, "Telegram message failed to send: {$errorMessage}\n");
-        exit(3);
+    $failedTargets = [];
+    foreach ($targets as $targetConfig) {
+        $sent = sendTelegramMessage(
+            $botToken,
+            (string) $targetConfig['chat_id'],
+            $message,
+            $targetConfig['thread_id']
+        );
+
+        if (!$sent) {
+            $failedTargets[] = (string) $targetConfig['chat_id'];
+            continue;
+        }
+
+        echo sprintf("Telegram notification sent to %s.\n", (string) $targetConfig['chat_id']);
     }
 
-    echo sprintf("Telegram notification sent to %s.\n", $target);
+    if (count($failedTargets) > 0) {
+        fwrite(STDERR, 'Telegram send failed for: ' . implode(', ', $failedTargets) . "\n");
+        exit(3);
+    }
 } else {
     echo "No status change, no Telegram message sent.\n";
 }
@@ -174,7 +182,57 @@ function saveState(string $path, array $state): void
     file_put_contents($path, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 }
 
-function sendTelegramMessage(string $botToken, string $target, string $message, ?int $threadId): array
+function resolveTelegramTargets(array $env): array
+{
+    $rawTargets = getenv('TELEGRAM_TARGETS') ?: ($env['TELEGRAM_TARGETS'] ?? '');
+    if ($rawTargets === '') {
+        $single = getenv('TELEGRAM_TARGET') ?: ($env['TELEGRAM_TARGET'] ?? '');
+        if ($single === '') {
+            $single = getenv('TELEGRAM_CHAT_ID') ?: ($env['TELEGRAM_CHAT_ID'] ?? '');
+        }
+        $rawTargets = $single;
+    }
+
+    $targetList = array_values(array_filter(array_map('trim', explode(',', $rawTargets)), static function ($value) {
+        return $value !== '';
+    }));
+
+    $defaultThreadRaw = getenv('TELEGRAM_MESSAGE_THREAD_ID') ?: ($env['TELEGRAM_MESSAGE_THREAD_ID'] ?? '');
+    $defaultThread = ctype_digit((string) $defaultThreadRaw) ? (int) $defaultThreadRaw : null;
+
+    $topicMapRaw = getenv('TELEGRAM_TARGET_TOPIC_MAP') ?: ($env['TELEGRAM_TARGET_TOPIC_MAP'] ?? '');
+    $topicMapEntries = array_values(array_filter(array_map('trim', explode(',', $topicMapRaw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    $topicMap = [];
+    foreach ($topicMapEntries as $entry) {
+        $parts = explode(':', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $target = trim($parts[0]);
+        $threadRaw = trim($parts[1]);
+        if ($target === '' || !ctype_digit($threadRaw)) {
+            continue;
+        }
+
+        $topicMap[$target] = (int) $threadRaw;
+    }
+
+    $resolved = [];
+    foreach ($targetList as $target) {
+        $resolved[] = [
+            'chat_id' => $target,
+            'thread_id' => $topicMap[$target] ?? $defaultThread,
+        ];
+    }
+
+    return $resolved;
+}
+
+function sendTelegramMessage(string $botToken, string $target, string $message, ?int $threadId): bool
 {
     $url = sprintf('https://api.telegram.org/bot%s/sendMessage', rawurlencode($botToken));
     $payloadData = [
@@ -188,68 +246,17 @@ function sendTelegramMessage(string $botToken, string $target, string $message, 
 
     $payload = http_build_query($payloadData);
 
-    $response = null;
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        if ($ch !== false) {
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => $payload,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CONNECTTIMEOUT => 10,
-                CURLOPT_TIMEOUT => 20,
-                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-            ]);
+    $opts = [
+        'http' => [
+            'method' => 'POST',
+            'timeout' => 20,
+            'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+            'content' => $payload,
+        ],
+    ];
 
-            $curlResponse = curl_exec($ch);
-            $curlError = curl_error($ch);
+    $context = stream_context_create($opts);
+    $response = @file_get_contents($url, false, $context);
 
-            if ($curlResponse !== false) {
-                $response = $curlResponse;
-            } elseif ($curlError !== '') {
-                return [
-                    'ok' => false,
-                    'error' => 'cURL error: ' . $curlError,
-                ];
-            }
-        }
-    }
-
-    if ($response === null) {
-        $opts = [
-            'http' => [
-                'method' => 'POST',
-                'timeout' => 20,
-                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-                'content' => $payload,
-            ],
-        ];
-
-        $context = stream_context_create($opts);
-        $response = @file_get_contents($url, false, $context);
-    }
-
-    if ($response === false) {
-        return [
-            'ok' => false,
-            'error' => 'HTTP request failed',
-        ];
-    }
-
-    $decoded = json_decode($response, true);
-    if (!is_array($decoded)) {
-        return [
-            'ok' => false,
-            'error' => 'Invalid Telegram API response',
-        ];
-    }
-
-    if (($decoded['ok'] ?? false) !== true) {
-        return [
-            'ok' => false,
-            'error' => (string) ($decoded['description'] ?? 'Telegram API returned error'),
-        ];
-    }
-
-    return ['ok' => true];
+    return $response !== false;
 }
