@@ -30,15 +30,14 @@ $officialReservationUrlMap = [
 ];
 
 $defaultTentImageUrlMap = [
-    'fischer-vroni' => '/assets/tents/fischer-vroni.jpg',
-    'hofbraeu-festzelt' => '/assets/tents/hofbraeu-festzelt.png',
-    'festhalle-pschorr-braeurosl' => '/assets/tents/festhalle-pschorr-braeurosl.png',
-    'hacker-festzelt' => '/assets/tents/hacker-festzelt.png',
-    'kufflers-weinzelt' => '/assets/tents/kufflers-weinzelt.png',
-    'kaefers-wiesn-schaenke' => '/assets/tents/kaefers-wiesn-schaenke.png',
-    'marstall-festzelt' => '/assets/tents/marstall-festzelt.png',
-    'paulaner-festzelt' => '/assets/tents/paulaner-festzelt.jpg',
-    'schuetzen-festzelt' => '/assets/tents/schuetzen-festzelt.png',
+    'hofbraeu-festzelt' => 'https://fzos-core-production-public.fsn1.your-objectstorage.com/portal-header-images/01JJV5N0NVCGSBKR11D32H6KDS.jpg',
+    'festhalle-pschorr-braeurosl' => 'https://www.braeurosl.de/fileadmin/_processed_/4/9/csm_startseite-header-Woche-1_27-09-2025-223_4b3b0acd68.jpg',
+    'hacker-festzelt' => 'https://hacker-festzelt.de/wp-content/uploads/2016/10/hacker_0001_Ebene-41.jpg',
+    'kufflers-weinzelt' => 'https://www.weinzelt.com/global/bilder/startseite/weinzelt_S1040695.webp?m=1701664309',
+    'marstall-festzelt' => 'https://marstall-oktoberfest.de/media/images/7.png',
+    'kaefers-wiesn-schaenke' => 'https://www.oktoberfest.de/sites/default/files/styles/3_2_w1008/public/2023-08/kaefer_architektur_innen_sebastian_lehner-9679.jpg?h=b10b0591',
+    'paulaner-festzelt' => 'https://www.paulanerfestzelt.de/oktoberfestzelt-wAssets/img/festzelt/weblication/wThumbnails/d5c52468-3d555bb5-mh825@2560w.webp',
+    'schuetzen-festzelt' => 'https://schuetzen-festzelt.de/templates/yootheme/cache/77/oktoberfest-schuetzen-festzelt-77a91d83.webp',
 ];
 $envTentImageUrlMap = resolveTentImageUrlMapFromEnv();
 $tentImageUrlMap = array_merge($defaultTentImageUrlMap, $envTentImageUrlMap);
