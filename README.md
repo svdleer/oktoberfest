@@ -151,5 +151,5 @@ Behavior:
 - For `fischer-vroni`, the monitor also tracks a normalized page signal checksum and can alert if the official page format/signal changes.
 - If `FISCHER_VRONI_FORMAT_TOPIC_ID` is set, those format-change alerts are posted to that separate topic.
 - For `fischer-vroni`, the monitor detects public booking activation hints from the Livewire snapshot (non-null booking/date/seat fields) and can alert to a separate topic.
-- Tent pictures are sourced from each tent main domain.
+- Tent pictures are bundled locally in `assets/tents` (and can still be overridden via `TENT_IMAGE_URL_MAP`).
 - Tent pictures can be overridden per venue via `TENT_IMAGE_URL_MAP` (Fischer-Vroni has a fixed header image default).

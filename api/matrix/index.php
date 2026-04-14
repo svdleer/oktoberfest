@@ -30,7 +30,15 @@ $officialReservationUrlMap = [
 ];
 
 $defaultTentImageUrlMap = [
-    'fischer-vroni' => 'https://fzos-core-production-public.fsn1.your-objectstorage.com/portal-header-images/01KH1RKHYC3KQXWHVT91HBDCB2.jpg',
+    'fischer-vroni' => '/assets/tents/fischer-vroni.jpg',
+    'hofbraeu-festzelt' => '/assets/tents/hofbraeu-festzelt.png',
+    'festhalle-pschorr-braeurosl' => '/assets/tents/festhalle-pschorr-braeurosl.png',
+    'hacker-festzelt' => '/assets/tents/hacker-festzelt.png',
+    'kufflers-weinzelt' => '/assets/tents/kufflers-weinzelt.png',
+    'kaefers-wiesn-schaenke' => '/assets/tents/kaefers-wiesn-schaenke.png',
+    'marstall-festzelt' => '/assets/tents/marstall-festzelt.png',
+    'paulaner-festzelt' => '/assets/tents/paulaner-festzelt.jpg',
+    'schuetzen-festzelt' => '/assets/tents/schuetzen-festzelt.png',
 ];
 $envTentImageUrlMap = resolveTentImageUrlMapFromEnv();
 $tentImageUrlMap = array_merge($defaultTentImageUrlMap, $envTentImageUrlMap);
