@@ -411,6 +411,7 @@ function loadTentStateBySlug(string $path): array
     return is_array($tents) ? $tents : [];
 }
 
+
 function extractBestTentImageFromHtml(string $html): string
 {
     if (preg_match_all('/https?:\\/\\/[^"\'\\s>]+\\.(?:jpg|jpeg|png|webp)/i', $html, $matches) < 1) {
