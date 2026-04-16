@@ -14,6 +14,7 @@ if (!output || !tableWrap) {
 
 let latestMatrix = null;
 let currentLang = "en";
+let selectedAvailability = null;
 
 const I18N = {
   en: {
@@ -26,6 +27,16 @@ const I18N = {
     legendRed: "Red = No products",
     legendGray: "Unavail = Not offered",
     allTents: "All tents",
+    available: "Available",
+    notAvailable: "Not available",
+    unavail: "Not offered",
+    viewDetails: "View",
+    detailsTitle: "Availability details",
+    detailsHint: "Select an available cell to see what is available for that date.",
+    detailsFor: "Details for",
+    dateLabel: "Date",
+    slotLabel: "Timeslot",
+    openReservation: "Open reservation",
     matrixTitle: "Reservation Matrix",
     matrixTent: "Tent",
     venueTitle: "Ticket Types Per Venue",
@@ -55,6 +66,16 @@ const I18N = {
     legendRed: "Rot = Keine Produkte",
     legendGray: "Unavail = Nicht angeboten",
     allTents: "Alle Zelte",
+    available: "Verfuegbar",
+    notAvailable: "Nicht verfuegbar",
+    unavail: "Nicht angeboten",
+    viewDetails: "Anzeigen",
+    detailsTitle: "Verfuegbarkeitsdetails",
+    detailsHint: "Waehle eine verfuegbare Zelle, um die verfuegbaren Zeitfenster fuer dieses Datum zu sehen.",
+    detailsFor: "Details fuer",
+    dateLabel: "Datum",
+    slotLabel: "Zeitslot",
+    openReservation: "Reservierung oeffnen",
     matrixTitle: "Reservierungs-Matrix",
     matrixTent: "Zelt",
     venueTitle: "Ticketarten pro Zelt",
@@ -109,34 +130,28 @@ function statusBadgeClass(status) {
   return "text-bg-secondary";
 }
 
-function renderTimeslotBadges(cell) {
-  const slots = ["mittag", "abend"];
-  return slots
-    .map((slot) => {
-      const slotStatus = cell.slotStatus?.[slot] || "unavail";
-      const slotUrl = cell.slotLinks?.[slot] || "#";
-      const badge = `slot-link slot-badge badge ${statusBadgeClass(slotStatus)}`;
-      const label = t(slot);
-
-      if (slotStatus === "unavail") {
-        return "";
-      }
-
-      if (slotStatus === "green") {
-        return `<a class="${badge}" href="${slotUrl}" target="_blank" rel="noreferrer">${label}</a>`;
-      }
-
-      return `<span class="${badge}">${label}</span>`;
-    })
-    .join("");
+function statusText(status) {
+  if (status === "green") return t("available");
+  if (status === "red") return t("notAvailable");
+  return t("unavail");
 }
 
-function renderStatusCell(cell) {
-  const slotLinks = renderTimeslotBadges(cell);
+function renderStatusCell(cell, tentSlug, date) {
+  const status = cell.status || "unavail";
+  const statusClass = statusBadgeClass(status);
+  const clickable = status === "green";
+  const selected =
+    selectedAvailability &&
+    selectedAvailability.slug === tentSlug &&
+    selectedAvailability.date === date;
+
+  const trigger = clickable
+    ? `<button type="button" class="availability-trigger badge ${statusClass} ${selected ? "is-selected" : ""}" data-slug="${tentSlug}" data-date="${date}">${statusText(status)} · ${t("viewDetails")}</button>`
+    : `<span class="badge ${statusClass}">${statusText(status)}</span>`;
 
   return `
     <td class="cell">
-      <div class="slot-links">${slotLinks || ""}</div>
+      <div class="cell-status">${trigger}</div>
     </td>
   `;
 }
@@ -153,7 +168,7 @@ function buildMatrixTable(matrix, tents) {
             slotStatus: { mittag: "unavail", abend: "unavail" },
             slotLinks: {},
           };
-          return renderStatusCell(cell);
+          return renderStatusCell(cell, tent.slug, date);
         })
         .join("");
 
@@ -189,6 +204,71 @@ function buildMatrixTable(matrix, tents) {
         ${rows}
       </tbody>
     </table>
+    </div>
+  `;
+}
+
+function buildAvailabilityDetails(matrix, tents) {
+  if (!selectedAvailability) {
+    return `
+      <div class="availability-details card border-0 shadow-sm mt-3">
+        <div class="card-body">
+          <h3 class="h5 mb-2">${t("detailsTitle")}</h3>
+          <p class="text-muted mb-0">${t("detailsHint")}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  const tent = tents.find((x) => x.slug === selectedAvailability.slug);
+  if (!tent) {
+    return "";
+  }
+
+  const cell = tent.matrix?.[selectedAvailability.date];
+  if (!cell) {
+    return "";
+  }
+
+  const rows = ["mittag", "abend"]
+    .map((slot) => {
+      const slotStatus = cell.slotStatus?.[slot] || "unavail";
+      const slotUrl = cell.slotLinks?.[slot] || tent.reservationUrl || "#";
+      const openLink =
+        slotStatus === "green"
+          ? `<a href="${slotUrl}" target="_blank" rel="noreferrer">${t("openReservation")}</a>`
+          : "-";
+
+      return `
+        <tr>
+          <td>${t(slot)}</td>
+          <td><span class="badge ${statusBadgeClass(slotStatus)}">${statusText(slotStatus)}</span></td>
+          <td>${openLink}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="availability-details card border-0 shadow-sm mt-3">
+      <div class="card-body">
+        <h3 class="h5 mb-2">${t("detailsTitle")}</h3>
+        <p class="mb-3"><strong>${t("detailsFor")}</strong>: ${tent.name} · <strong>${t("dateLabel")}</strong>: ${selectedAvailability.date}</p>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>${t("slotLabel")}</th>
+                <th>${t("matrixTitle")}</th>
+                <th>${t("openReservation")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -277,7 +357,10 @@ function renderMatrix() {
 
   renderVenueOptions(latestMatrix);
   const tents = filteredTents(latestMatrix);
-  tableWrap.innerHTML = `${buildMatrixTable(latestMatrix, tents)}${buildVenueSummary(tents)}`;
+  if (selectedAvailability && !tents.some((t) => t.slug === selectedAvailability.slug)) {
+    selectedAvailability = null;
+  }
+  tableWrap.innerHTML = `${buildMatrixTable(latestMatrix, tents)}${buildAvailabilityDetails(latestMatrix, tents)}${buildVenueSummary(tents)}`;
   output.textContent = `${t("loaded")}: ${tents.length}/${latestMatrix.tents.length} tents, timeslot=${latestMatrix.timeslot}`;
 }
 
@@ -312,6 +395,17 @@ if (venueSelect) {
 if (venueFilterInput) {
   venueFilterInput.addEventListener("input", renderMatrix);
 }
+tableWrap.addEventListener("click", (event) => {
+  const button = event.target.closest(".availability-trigger");
+  if (!button) return;
+
+  const slug = button.getAttribute("data-slug");
+  const date = button.getAttribute("data-date");
+  if (!slug || !date) return;
+
+  selectedAvailability = { slug, date };
+  renderMatrix();
+});
 if (langEnButton) {
   langEnButton.addEventListener("click", () => applyLanguage("en"));
 }

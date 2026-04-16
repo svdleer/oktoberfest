@@ -108,6 +108,27 @@ body {
   gap: 0.3rem;
 }
 
+.cell-status {
+  display: flex;
+  justify-content: center;
+}
+
+.availability-trigger {
+  border: 0;
+  cursor: pointer;
+  text-transform: none;
+}
+
+.availability-trigger.is-selected {
+  outline: 2px solid #0c4a6e;
+  outline-offset: 1px;
+}
+
+.availability-details .table td,
+.availability-details .table th {
+  white-space: nowrap;
+}
+
 .slot-link {
   font-size: 0.72rem;
 }
