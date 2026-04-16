@@ -30,6 +30,7 @@ $officialReservationUrlMap = [
 ];
 
 $defaultTentImageUrlMap = [
+    'fischer-vroni' => '/assets/tents/fischer-vroni.jpg',
     'hofbraeu-festzelt' => 'https://fzos-core-production-public.fsn1.your-objectstorage.com/portal-header-images/01JJV5N0NVCGSBKR11D32H6KDS.jpg',
     'festhalle-pschorr-braeurosl' => 'https://www.braeurosl.de/fileadmin/_processed_/4/9/csm_startseite-header-Woche-1_27-09-2025-223_4b3b0acd68.jpg',
     'hacker-festzelt' => 'https://hacker-festzelt.de/wp-content/uploads/2016/10/hacker_0001_Ebene-41.jpg',
@@ -210,11 +211,29 @@ $weekdayByDate = [
     '03.10.2026 (Sa)' => 'samstag',
 ];
 
+$statePath = dirname(__DIR__, 2) . '/storage/oktoberfest_tent_monitor_state.json';
+$stateBySlug = loadTentStateBySlug($statePath);
+
 $imageCachePath = dirname(__DIR__, 2) . '/storage/tent_image_cache.json';
 $imageCache = loadImageCache($imageCachePath);
 
 $tents = [];
 foreach ($venues as $venue) {
+    $slug = (string) $venue['slug'];
+    if (isset($stateBySlug[$slug]['isAvailable'])) {
+        $isAvailable = (bool) $stateBySlug[$slug]['isAvailable'];
+        $statusColor = $isAvailable ? 'green' : 'red';
+
+        foreach ($dates as $d) {
+            $venue['slots'][$d] = ['mittag' => $statusColor, 'abend' => $statusColor];
+        }
+
+        $venue['sales']['open'] = $isAvailable;
+        $venue['sales']['note'] = $isAvailable
+            ? 'Official reservation portal currently indicates availability.'
+            : 'Official reservation portal currently indicates no availability.';
+    }
+
     $matrix = [];
 
     foreach ($dates as $date) {
@@ -370,6 +389,26 @@ function resolveTentImageUrlMapFromEnv(): array
     }
 
     return $map;
+}
+
+function loadTentStateBySlug(string $path): array
+{
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $raw = file_get_contents($path);
+    if ($raw === false || trim($raw) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $tents = $decoded['tents'] ?? [];
+    return is_array($tents) ? $tents : [];
 }
 
 function extractBestTentImageFromHtml(string $html): string

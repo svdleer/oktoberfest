@@ -113,10 +113,12 @@ This updates `TELEGRAM_TENT_TOPIC_MAP` automatically.
 
 Users can message the bot:
 
-- `/status` for last known status from storage
-- `/status live` for a live fetch from public sources
-- `/statusde` for last known status in German
-- `/statusde live` for a live fetch in German
+- `/status` for last known status from storage (topic-scoped: only that venue)
+- `/status live` for a live fetch from official sources (topic-scoped: only that venue)
+- `/status all` for all venues
+- `/statusde` for last known status in German (topic-scoped: only that venue)
+- `/statusde live` for a live fetch in German (topic-scoped: only that venue)
+- `/statusde all` for all venues in German
 
 Run listener periodically (e.g., every minute):
 

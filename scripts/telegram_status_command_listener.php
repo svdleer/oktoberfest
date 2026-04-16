@@ -19,6 +19,16 @@ const BASE_SHOP_URL = 'https://tischreservierung-oktoberfest.de/shop/?swoof=1&pa
 const EMPTY_MARKER = 'Es wurden keine Produkte gefunden';
 const FISCHER_VRONI_OFFICIAL_DEFAULT_URL = 'https://reservierung.fischer-vroni.de/reservation';
 const FISCHER_VRONI_OFFICIAL_NO_AVAIL_MARKER = 'Aktuell gibt es keine Verfügbarkeiten.';
+const DEFAULT_OFFICIAL_TENT_URL_MAP = [
+    'fischer-vroni' => 'https://reservierung.fischer-vroni.de/reservation',
+    'hofbraeu-festzelt' => 'https://reservierung.hb-festzelt.de/reservierung',
+    'festhalle-pschorr-braeurosl' => 'https://reservierung.braeurosl.de/',
+    'hacker-festzelt' => 'https://reservierung.derhimmelderbayern.de/',
+    'kaefers-wiesn-schaenke' => 'https://wiesnresmittag.kaefer-wiesn.de/',
+    'marstall-festzelt' => 'https://reservierung.marstall-oktoberfest.de/',
+    'paulaner-festzelt' => 'https://reservierung.paulanerfestzelt.de/',
+    'schuetzen-festzelt' => 'https://schuetzen-festzelt.de/de/reservierung.html',
+];
 
 const TENTS = [
     ['name' => 'Fischer-Vroni', 'slug' => 'fischer-vroni'],
@@ -40,6 +50,10 @@ $offsetFile = $rootDir . '/storage/telegram_status_listener_offset.txt';
 $env = loadEnvFile($envFile);
 $token = getenv('TELEGRAM_BOT_TOKEN') ?: ($env['TELEGRAM_BOT_TOKEN'] ?? '');
 $fischerVroniOfficialUrl = getenv('FISCHER_VRONI_OFFICIAL_URL') ?: ($env['FISCHER_VRONI_OFFICIAL_URL'] ?? FISCHER_VRONI_OFFICIAL_DEFAULT_URL);
+$tentTopicMap = resolveTentTopicMap($env);
+$threadTentMap = buildThreadTentMap($tentTopicMap);
+$officialTentUrlMap = resolveOfficialTentUrlMap($env);
+$officialTentUrlMap['fischer-vroni'] = $fischerVroniOfficialUrl;
 
 if ($token === '') {
     fwrite(STDERR, "Missing TELEGRAM_BOT_TOKEN in .env.telegram\n");
@@ -110,10 +124,16 @@ foreach ($items as $update) {
 
     $threadId = isset($msg['message_thread_id']) ? (int) $msg['message_thread_id'] : null;
     $live = str_contains($normalized, ' live') || str_contains($normalized, ' now');
+    $allMode = str_contains($normalized, ' all');
+
+    $topicTentSlug = null;
+    if (!$allMode && $threadId !== null && isset($threadTentMap[$threadId])) {
+        $topicTentSlug = $threadTentMap[$threadId];
+    }
 
     $statusRows = $live
-        ? getLiveStatuses($fischerVroniOfficialUrl)
-        : getStoredStatuses($stateFile);
+        ? getLiveStatuses($officialTentUrlMap, $topicTentSlug)
+        : getStoredStatuses($stateFile, $topicTentSlug);
 
     $header = $lang === 'de'
         ? ($live ? 'Oktoberfest Status (live)' : 'Oktoberfest Status (letzter Stand)')
@@ -152,7 +172,7 @@ file_put_contents($offsetFile, (string) $latestUpdateId);
 echo "Processed commands: {$processed}\n";
 exit(0);
 
-function getStoredStatuses(string $stateFile): array
+function getStoredStatuses(string $stateFile, ?string $onlySlug = null): array
 {
     if (!is_file($stateFile)) {
         return [];
@@ -176,6 +196,10 @@ function getStoredStatuses(string $stateFile): array
     $rows = [];
     foreach (TENTS as $tent) {
         $slug = $tent['slug'];
+        if ($onlySlug !== null && $onlySlug !== $slug) {
+            continue;
+        }
+
         $name = $tent['name'];
         $rows[] = [
             'name' => $name,
@@ -186,24 +210,25 @@ function getStoredStatuses(string $stateFile): array
     return $rows;
 }
 
-function getLiveStatuses(string $fischerVroniOfficialUrl): array
+function getLiveStatuses(array $officialTentUrlMap, ?string $onlySlug = null): array
 {
     $rows = [];
     foreach (TENTS as $tent) {
         $slug = $tent['slug'];
-        $name = $tent['name'];
-
-        $marketHtml = fetchUrl(BASE_SHOP_URL . rawurlencode($slug));
-        $marketAvailable = false;
-        if ($marketHtml !== null) {
-            $marketAvailable = detectMarketplaceAvailability($marketHtml, $slug);
+        if ($onlySlug !== null && $onlySlug !== $slug) {
+            continue;
         }
 
-        $available = $marketAvailable;
-        if ($slug === 'fischer-vroni') {
-            $officialHtml = fetchUrl($fischerVroniOfficialUrl);
+        $name = $tent['name'];
+
+        $available = false;
+        $officialUrl = $officialTentUrlMap[$slug] ?? null;
+        if (is_string($officialUrl) && $officialUrl !== '') {
+            $officialHtml = fetchUrl($officialUrl);
             if ($officialHtml !== null) {
-                $official = detectFischerVroniOfficialAvailability($officialHtml);
+                $official = $slug === 'fischer-vroni'
+                    ? detectFischerVroniOfficialAvailability($officialHtml)
+                    : detectGenericOfficialAvailability($officialHtml);
                 if ($official !== null) {
                     $available = $official;
                 }
@@ -216,13 +241,41 @@ function getLiveStatuses(string $fischerVroniOfficialUrl): array
     return $rows;
 }
 
-function detectMarketplaceAvailability(string $html, string $slug): bool
+function detectGenericOfficialAvailability(string $html): ?bool
 {
-    if (stripos($html, EMPTY_MARKER) !== false) {
-        return false;
+    $negativeMarkers = [
+        'keine verfügbarkeiten',
+        'keine verfuegbarkeiten',
+        'aktuell gibt es keine',
+        'derzeit keine',
+        'momentan keine',
+        'ausgebucht',
+        'is loading',
+        'coming soon',
+        'placeholder',
+    ];
+
+    foreach ($negativeMarkers as $marker) {
+        if (stripos($html, $marker) !== false) {
+            return false;
+        }
     }
 
-    return stripos($html, '/shop/' . $slug . '-') !== false || stripos($html, 'Preisspanne:') !== false;
+    $positiveMarkers = [
+        'reservierung',
+        'reservierungen',
+        'buchung',
+        'verfügbarkeit',
+        'verfuegbarkeit',
+    ];
+
+    foreach ($positiveMarkers as $marker) {
+        if (stripos($html, $marker) !== false) {
+            return true;
+        }
+    }
+
+    return null;
 }
 
 function detectFischerVroniOfficialAvailability(string $html): ?bool
@@ -309,4 +362,70 @@ function telegramApi(string $token, string $method, array $params): array
     }
 
     return $json;
+}
+
+function resolveTentTopicMap(array $env): array
+{
+    $raw = getenv('TELEGRAM_TENT_TOPIC_MAP') ?: ($env['TELEGRAM_TENT_TOPIC_MAP'] ?? '');
+    $entries = array_values(array_filter(array_map('trim', explode(',', $raw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    $map = [];
+    foreach ($entries as $entry) {
+        $parts = explode(':', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $slug = trim($parts[0]);
+        $threadRaw = trim($parts[1]);
+        if ($slug === '' || !ctype_digit($threadRaw)) {
+            continue;
+        }
+
+        $map[$slug] = (int) $threadRaw;
+    }
+
+    return $map;
+}
+
+function buildThreadTentMap(array $tentTopicMap): array
+{
+    $threadTentMap = [];
+    foreach ($tentTopicMap as $slug => $threadId) {
+        $threadTentMap[(int) $threadId] = (string) $slug;
+    }
+    return $threadTentMap;
+}
+
+function resolveOfficialTentUrlMap(array $env): array
+{
+    $map = DEFAULT_OFFICIAL_TENT_URL_MAP;
+
+    $raw = getenv('OFFICIAL_TENT_URL_MAP') ?: ($env['OFFICIAL_TENT_URL_MAP'] ?? '');
+    if ($raw === '') {
+        return $map;
+    }
+
+    $entries = array_values(array_filter(array_map('trim', explode(',', $raw)), static function ($value) {
+        return $value !== '';
+    }));
+
+    foreach ($entries as $entry) {
+        $parts = explode(':', $entry, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+
+        $slug = trim($parts[0]);
+        $url = trim($parts[1]);
+        if ($slug === '' || $url === '') {
+            continue;
+        }
+
+        $map[$slug] = $url;
+    }
+
+    return $map;
 }
